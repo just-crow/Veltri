@@ -350,18 +350,18 @@ export function DashboardClient({
             >
               <Card className="group hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg truncate">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <CardTitle className="text-lg truncate break-words">
                         {note.title}
                       </CardTitle>
                         <div className="mt-1 flex items-center gap-2">
-                          <CardDescription>
+                          <CardDescription className="shrink-0">
                             {format(new Date(note.updated_at), "MMM d, yyyy")}
                           </CardDescription>
-                          <Badge variant="outline" className={`text-[10px] uppercase tracking-wide ${fileTypeBadgeClass(inferFileType(note))}`}>
-                              {inferFileType(note)}
-                            </Badge>
+                          <Badge variant="outline" className={`shrink-0 text-[10px] uppercase tracking-wide ${fileTypeBadgeClass(inferFileType(note))}`}>
+                            {inferFileType(note)}
+                          </Badge>
                         </div>
                     </div>
                     <DropdownMenu>
@@ -503,21 +503,21 @@ export function DashboardClient({
                       <Link href={`/note/${note.users?.username}/${note.slug}`}>
                         <Card className="group hover:shadow-md transition-shadow cursor-pointer">
                           <CardHeader className="pb-3">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1 min-w-0">
-                                <CardTitle className="text-lg truncate">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0 overflow-hidden">
+                                <CardTitle className="text-lg truncate break-words">
                                   {note.title}
                                 </CardTitle>
                                 <div className="mt-1 flex items-center gap-2">
-                                  <CardDescription>
+                                  <CardDescription className="shrink-0 truncate">
                                     by {note.users?.username ?? "Unknown"}
                                   </CardDescription>
-                                  <Badge variant="outline" className={`text-[10px] uppercase tracking-wide ${fileTypeBadgeClass(inferFileType(note))}`}>
-                                      {inferFileType(note)}
-                                    </Badge>
+                                  <Badge variant="outline" className={`shrink-0 text-[10px] uppercase tracking-wide ${fileTypeBadgeClass(inferFileType(note))}`}>
+                                    {inferFileType(note)}
+                                  </Badge>
                                 </div>
                               </div>
-                              <Badge variant="outline" className="shrink-0 ml-2">
+                              <Badge variant="outline" className="shrink-0">
                                 <ShoppingBag className="h-3 w-3 mr-1" />
                                 Purchased
                               </Badge>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -53,22 +53,6 @@ interface ExploreClientProps {
   perPage: number;
 }
 
-function getTitleLimit(viewportWidth: number): number {
-  if (viewportWidth < 640) return 34;
-  if (viewportWidth < 1024) return 48;
-  return 66;
-}
-
-function truncateTitle(title: string, viewportWidth: number): string {
-  const safeTitle = (title || "").trim();
-  if (!safeTitle) return "Untitled";
-
-  const limit = getTitleLimit(viewportWidth);
-  if (safeTitle.length <= limit) return safeTitle;
-
-  return `${safeTitle.slice(0, limit - 3).trimEnd()}...`;
-}
-
 export function ExploreClient({
   initialNotes,
   initialQuery,
@@ -77,16 +61,8 @@ export function ExploreClient({
   perPage,
 }: ExploreClientProps) {
   const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [viewportWidth, setViewportWidth] = useState<number>(1200);
   const router = useRouter();
   const totalPages = Math.ceil(totalCount / perPage);
-
-  useEffect(() => {
-    const handleResize = () => setViewportWidth(window.innerWidth);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,18 +132,20 @@ export function ExploreClient({
                 <Card className="h-full hover:shadow-xl transition-shadow cursor-pointer group">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="line-clamp-2 min-w-0 group-hover:text-primary transition-colors">
-                        <span title={note.title}>{truncateTitle(note.title, viewportWidth)}</span>
+                      <CardTitle className="min-w-0 overflow-hidden group-hover:text-primary transition-colors">
+                        <span className="block line-clamp-2 break-words" title={note.title}>{note.title}</span>
                       </CardTitle>
-                      <NotePriceBadge price={note.price} isExclusive={note.is_exclusive} isSold={note.is_sold} />
+                      <div className="shrink-0">
+                        <NotePriceBadge price={note.price} isExclusive={note.is_exclusive} isSold={note.is_sold} />
+                      </div>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <CardDescription>
+                      <CardDescription className="shrink-0">
                         {format(new Date(note.created_at), "MMM d, yyyy")}
                       </CardDescription>
-                      <Badge variant="outline" className={`text-[10px] uppercase tracking-wide ${fileTypeBadgeClass(inferFileType(note))}`}>
-                          {inferFileType(note)}
-                        </Badge>
+                      <Badge variant="outline" className={`shrink-0 text-[10px] uppercase tracking-wide ${fileTypeBadgeClass(inferFileType(note))}`}>
+                        {inferFileType(note)}
+                      </Badge>
                     </div>
                   </CardHeader>
                   <CardContent>

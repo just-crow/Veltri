@@ -691,9 +691,9 @@ export default function NoteEditorPage() {
   }
 
   return (
-    <div className="flex">
+    <div className="flex min-w-0 overflow-x-hidden">
       <div
-        className={`flex-1 transition-all duration-300 ${showAISidebar ? "md:mr-96" : ""}`}
+        className={`flex-1 min-w-0 overflow-x-hidden transition-all duration-300 ${showAISidebar ? "md:mr-96" : ""}`}
       >
         <div className="container mx-auto max-w-4xl px-4 py-4 md:py-8 space-y-4 md:space-y-6">
           {/* Header Controls - responsive layout */}
