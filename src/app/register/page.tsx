@@ -196,7 +196,7 @@ export default function RegisterPage() {
                 />
               </div>
 
-              <div className="flex items-top space-x-2">
+              <div className="flex items-start space-x-2">
                 <Checkbox 
                   id="terms" 
                   checked={agreed}

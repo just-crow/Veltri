@@ -2,9 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get("code");
+  const next = requestUrl.searchParams.get("next") ?? "/dashboard";
+  const origin = requestUrl.origin;
 
   // Prevent open redirect: only allow relative paths starting with /
   // and block protocol-relative URLs (//evil.com)
@@ -15,8 +16,17 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      // Use origin only — don't trust x-forwarded-host to prevent redirect attacks
-      return NextResponse.redirect(`${origin}${safeNext}`);
+      const forwardedHost = request.headers.get("x-forwarded-host"); // original origin before load balancer
+      const isLocalEnv = process.env.NODE_ENV === "development";
+
+      if (isLocalEnv) {
+        // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
+        return NextResponse.redirect(`${origin}${safeNext}`);
+      } else if (forwardedHost) {
+        return NextResponse.redirect(`https://${forwardedHost}${safeNext}`);
+      } else {
+        return NextResponse.redirect(`${origin}${safeNext}`);
+      }
     }
   }
 
