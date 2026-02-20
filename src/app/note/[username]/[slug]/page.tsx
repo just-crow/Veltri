@@ -6,6 +6,8 @@ import { CommentsSection } from "@/components/note/comments-section";
 import { NoteQualityPanel } from "@/components/note/note-quality-panel";
 import { NoteAiDetectionPanel } from "@/components/note/note-ai-detection-panel";
 import { NotePurchaseWall } from "@/components/note/note-purchase-wall";
+import { ShieldAlert } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import type { Note, User } from "@/lib/types";
 
 interface NotePageProps {
@@ -197,6 +199,20 @@ export default async function NotePage({ params }: NotePageProps) {
                 isExclusive={isExclusive}
                 isSold={isSold}
               />
+              {isExclusive && (
+                <>
+                  <Separator className="mt-10 mb-6" />
+                  <div className="flex gap-3 rounded-lg border border-violet-300/40 bg-violet-50/50 dark:border-violet-500/20 dark:bg-violet-950/20 px-4 py-3 text-sm text-muted-foreground">
+                    <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-violet-500" />
+                    <p>
+                      The creator of this note has declared that its content is entirely original and has{" "}
+                      <strong className="text-foreground">not been published</strong> anywhere on the
+                      internet, nor submitted to any anti-plagiarism service (such as Turnitin or
+                      iThenticate) prior to listing here.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
