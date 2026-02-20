@@ -22,7 +22,7 @@ import type { Note, User } from "@/lib/types";
 import { NoteScoreBadge } from "@/components/note/note-score-badge";
 import { NotePriceBadge } from "@/components/note/note-price-badge";
 
-function inferFileType(note: Note): string | null {
+function inferFileType(note: Note): string {
   const mime = (note.original_file_type || "").toLowerCase();
   const fileName = (note.original_file_name || "").toLowerCase();
 
@@ -31,7 +31,7 @@ function inferFileType(note: Note): string | null {
   if (mime.includes("markdown") || fileName.endsWith(".md")) return "MD";
   if (mime.includes("text") || fileName.endsWith(".txt")) return "TXT";
   if (fileName) return "FILE";
-  return null;
+  return "NOTE";
 }
 
 function fileTypeBadgeClass(type: string): string {
@@ -165,11 +165,9 @@ export function ExploreClient({
                       <CardDescription>
                         {format(new Date(note.created_at), "MMM d, yyyy")}
                       </CardDescription>
-                      {inferFileType(note) && (
-                        <Badge variant="outline" className={`text-[10px] uppercase tracking-wide ${fileTypeBadgeClass(inferFileType(note)!)}`}>
+                      <Badge variant="outline" className={`text-[10px] uppercase tracking-wide ${fileTypeBadgeClass(inferFileType(note))}`}>
                           {inferFileType(note)}
                         </Badge>
-                      )}
                     </div>
                   </CardHeader>
                   <CardContent>

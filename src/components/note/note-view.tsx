@@ -7,7 +7,7 @@ import { SafeHtmlContent } from "./safe-html-content";
 import { Star, ShieldCheck, FileText } from "lucide-react";
 import type { Note, User, Tag } from "@/lib/types";
 
-function inferFileType(note: Note): string | null {
+function inferFileType(note: Note): string {
   const mime = (note.original_file_type || "").toLowerCase();
   const fileName = (note.original_file_name || "").toLowerCase();
   if (mime.includes("pdf") || fileName.endsWith(".pdf")) return "PDF";
@@ -15,7 +15,7 @@ function inferFileType(note: Note): string | null {
   if (mime.includes("markdown") || fileName.endsWith(".md")) return "MD";
   if (mime.includes("text") || fileName.endsWith(".txt")) return "TXT";
   if (fileName) return "FILE";
-  return null;
+  return "NOTE";
 }
 
 function fileTypeBadgeClass(type: string): string {
@@ -91,15 +91,13 @@ export function NoteView({ note, author, tags, originalFileUrl, isExclusive = fa
                 {note.updated_at !== note.created_at &&
                   ` · Updated ${format(new Date(note.updated_at), "MMM d, yyyy")}`}
               </p>
-              {inferFileType(note) && (
-                <Badge
+              <Badge
                   variant="outline"
-                  className={`text-[10px] uppercase tracking-wide gap-1 ${fileTypeBadgeClass(inferFileType(note)!)}`}
+                  className={`text-[10px] uppercase tracking-wide gap-1 ${fileTypeBadgeClass(inferFileType(note))}`}
                 >
                   <FileText className="h-3 w-3" />
                   {inferFileType(note)}
                 </Badge>
-              )}
             </div>
           </div>
         </div>
