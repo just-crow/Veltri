@@ -92,8 +92,10 @@ async function callNvidia(messages: ChatMessage[], options?: NvidiaOptions): Pro
   }
 }
 
-// Streaming call — yields text chunks, stripping <think>...</think> blocks
-// Handles tags split across multiple SSE chunks by buffering until safe to emit.
+// Streaming call — yields text chunks, stripping <think>...</think> blocks.
+// Strategy: accumulate ALL model text into a buffer. Only start emitting once
+// we've confirmed the think block is fully closed (</think> found), or after
+// 50 chars with no opening <think> tag at all.
 export async function* streamNvidia(messages: ChatMessage[], options?: NvidiaOptions): AsyncGenerator<string> {
   const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
     method: "POST",
@@ -118,13 +120,15 @@ export async function* streamNvidia(messages: ChatMessage[], options?: NvidiaOpt
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
-  let sseBuffer = ""   // raw SSE line buffer
-  let textBuffer = ""  // accumulated model text, used to track think blocks
-  let thinkDone = false // once we've seen </think> or confirmed no think block, start emitting
+  let sseBuffer = ""  // raw SSE line accumulator
+  let modelText = ""  // all model text received so far
+  let emitFrom = 0    // index in modelText from which we have already yielded
+  let thinkStripped = false // have we finished stripping the think block?
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
+
     sseBuffer += decoder.decode(value, { stream: true })
     const lines = sseBuffer.split("\n")
     sseBuffer = lines.pop() ?? ""
@@ -134,11 +138,9 @@ export async function* streamNvidia(messages: ChatMessage[], options?: NvidiaOpt
       if (!trimmed.startsWith("data:")) continue
       const json = trimmed.slice(5).trim()
       if (json === "[DONE]") {
-        // Flush anything remaining after think block
-        if (thinkDone && textBuffer) {
-          yield textBuffer
-          textBuffer = ""
-        }
+        // Flush any remaining unemitted text
+        const remaining = modelText.slice(emitFrom)
+        if (remaining) yield remaining
         return
       }
       try {
@@ -146,25 +148,27 @@ export async function* streamNvidia(messages: ChatMessage[], options?: NvidiaOpt
         const chunk = parsed.choices?.[0]?.delta?.content
         if (!chunk) continue
 
-        textBuffer += chunk
+        modelText += chunk
 
-        if (!thinkDone) {
-          // Check if the think block is fully closed
-          const closeIdx = textBuffer.indexOf("</think>")
+        if (!thinkStripped) {
+          const closeIdx = modelText.indexOf("</think>")
           if (closeIdx !== -1) {
-            // Strip everything up to and including </think>
-            textBuffer = textBuffer.slice(closeIdx + 8).replace(/^\n+/, "")
-            thinkDone = true
-          } else if (!textBuffer.startsWith("<think>") && !("<think>".startsWith(textBuffer))) {
-            // No think block at all — safe to start emitting immediately
-            thinkDone = true
+            // Found closing tag — skip everything up to and including it
+            emitFrom = closeIdx + 8
+            // Skip leading newlines after </think>
+            while (emitFrom < modelText.length && modelText[emitFrom] === "\n") emitFrom++
+            thinkStripped = true
+          } else if (modelText.length > 50 && !modelText.includes("<think>")) {
+            // No think block present — emit from the start
+            thinkStripped = true
+            emitFrom = 0
           }
-          // else: still accumulating the think block, don't emit yet
+          // else: still waiting for </think>, hold back
         }
 
-        if (thinkDone && textBuffer) {
-          yield textBuffer
-          textBuffer = ""
+        if (thinkStripped && emitFrom < modelText.length) {
+          yield modelText.slice(emitFrom)
+          emitFrom = modelText.length
         }
       } catch { /* skip malformed lines */ }
     }
