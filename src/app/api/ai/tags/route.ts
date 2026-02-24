@@ -51,10 +51,7 @@ Each tag should be a single word or short phrase (max 2-3 words), lowercase, rel
 Text to tag:
 ${content.substring(0, 4000)}`;
 
-    const responseText = await nvidiaPrompt(prompt, {
-      temperature: 0.3,
-      maxTokens: 260,
-    });
+    const responseText = await nvidiaPrompt(prompt, { temperature: 0.3, maxTokens: 400, noThink: true });
 
     // Extract JSON
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);

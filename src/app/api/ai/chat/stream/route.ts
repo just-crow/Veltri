@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         const encoder = new TextEncoder();
         try {
-          for await (const chunk of streamNvidia(messages, { temperature: 0.5, maxTokens: 2000 })) {
+          for await (const chunk of streamNvidia(messages, { temperature: 0.5, maxTokens: 4096 })) {
             const data = `data: ${JSON.stringify({ chunk })}\n\n`;
             controller.enqueue(encoder.encode(data));
           }

@@ -93,10 +93,7 @@ Scoring rule: If the content is factually wrong or misleading, grammar_score mus
 Text to review:
 ${content.substring(0, 4000)}`;
 
-    const responseText = await nvidiaPrompt(prompt, {
-      temperature: 0.2,
-      maxTokens: 1100,
-    });
+    const responseText = await nvidiaPrompt(prompt, { temperature: 0.2, maxTokens: 2048, noThink: true });
 
     // Extract JSON from potential markdown code blocks
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);

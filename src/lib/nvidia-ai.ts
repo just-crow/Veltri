@@ -14,6 +14,7 @@ interface NvidiaOptions {
   temperature?: number
   maxTokens?: number
   stream?: boolean
+  noThink?: boolean  // prepends /no_think to system prompt — skips <think> entirely
 }
 
 interface ChatCompletionsChoice {
@@ -68,6 +69,23 @@ function localPromptFallback(prompt: string): string {
 
 async function callNvidia(messages: ChatMessage[], options?: NvidiaOptions): Promise<string | null> {
   try {
+    // Inject /no_think into the system prompt to skip the <think> block entirely
+    let finalMessages = messages
+    if (options?.noThink) {
+      const hasSystem = finalMessages[0]?.role === "system"
+      if (hasSystem) {
+        finalMessages = [
+          { ...finalMessages[0], content: `/no_think ${finalMessages[0].content}` },
+          ...finalMessages.slice(1),
+        ]
+      } else {
+        finalMessages = [
+          { role: "system", content: "/no_think" },
+          ...finalMessages,
+        ]
+      }
+    }
+
     const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: {
@@ -76,9 +94,9 @@ async function callNvidia(messages: ChatMessage[], options?: NvidiaOptions): Pro
       },
       body: JSON.stringify({
         model: getModel(options),
-        messages,
+        messages: finalMessages,
         temperature: options?.temperature ?? 0.3,
-        max_tokens: options?.maxTokens ?? 1200,
+        max_tokens: options?.maxTokens ?? 2048,
         top_p: 1,
         stream: false,
       }),
@@ -107,7 +125,7 @@ export async function* streamNvidia(messages: ChatMessage[], options?: NvidiaOpt
       model: getModel(options),
       messages,
       temperature: options?.temperature ?? 0.5,
-      max_tokens: options?.maxTokens ?? 2000,
+      max_tokens: options?.maxTokens ?? 4096,
       top_p: 1,
       stream: true,
     }),

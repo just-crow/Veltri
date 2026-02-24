@@ -78,10 +78,7 @@ Content (first 1500 chars): ${content.substring(0, 1500)}
 Return only this JSON object, no markdown and no extra text:
 {"score": 7, "reason": "Brief one-sentence reason focusing on relevancy and quality"}`;
 
-    const raw = await nvidiaPrompt(prompt, {
-      temperature: 0.2,
-      maxTokens: 1100,
-    });
+    const raw = await nvidiaPrompt(prompt, { temperature: 0.2, maxTokens: 2048, noThink: true });
     const parsed = parseScoreResponse(raw);
 
     if (!parsed) {

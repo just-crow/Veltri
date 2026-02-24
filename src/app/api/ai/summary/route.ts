@@ -49,10 +49,7 @@ export async function POST(request: NextRequest) {
 Note content:
 ${content.substring(0, 4000)}`;
 
-    let summary = await nvidiaPrompt(prompt, {
-      temperature: 0.3,
-      maxTokens: 220,
-    });
+    let summary = await nvidiaPrompt(prompt, { temperature: 0.3, maxTokens: 400, noThink: true });
 
     if (!summary) {
       summary = buildFallbackSummary(content);
