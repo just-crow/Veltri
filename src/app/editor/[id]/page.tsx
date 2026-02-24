@@ -991,7 +991,7 @@ export default function NoteEditorPage() {
       {/* Mobile: Sheet overlay */}
       {isMobileViewport && (
         <Sheet open={showAISidebar} onOpenChange={setShowAISidebar}>
-          <SheetContent side="right" className="w-full sm:w-96 p-0 md:hidden" overlayClassName="md:hidden" showCloseButton={false}>
+          <SheetContent side="right" className="w-full sm:w-96 p-0 flex flex-col h-full md:hidden" overlayClassName="md:hidden" showCloseButton={false}>
             <SheetTitle className="sr-only">AI Assistant</SheetTitle>
             <SheetDescription className="sr-only">AI assistant panel for note editing</SheetDescription>
             <AISidebar

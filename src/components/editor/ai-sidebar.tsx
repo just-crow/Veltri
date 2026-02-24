@@ -244,7 +244,7 @@ export function AISidebar({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b">
         <h2 className="font-semibold flex items-center gap-2">
           <Sparkles className="h-5 w-5" />
@@ -255,7 +255,7 @@ export function AISidebar({
         </Button>
       </div>
 
-      <Tabs defaultValue="summary" className="flex-1 flex flex-col">
+      <Tabs defaultValue="summary" className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <TabsList className="grid grid-cols-4 m-2">
           <TabsTrigger value="summary" className="text-xs">
             Summary
@@ -402,14 +402,14 @@ export function AISidebar({
         {/* Chat Tab */}
         <TabsContent
           value="chat"
-          className="flex-1 flex flex-col overflow-hidden p-0"
+          className="flex-1 flex flex-col min-h-0 overflow-hidden p-0"
         >
           <div className="p-3 border-b">
             <p className="text-xs text-muted-foreground">
               Chat with AI about your note content (RAG).
             </p>
           </div>
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 min-h-0 p-4">
             <div className="space-y-4">
               {chatMessages.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">
