@@ -22,7 +22,7 @@ export function ExpandableNoteContent({ html }: ExpandableNoteContentProps) {
       >
         <SafeHtmlContent
           html={html}
-          className="prose prose-lg dark:prose-invert max-w-none overflow-x-auto break-words"
+          className="prose prose-lg dark:prose-invert max-w-none overflow-x-hidden break-words [overflow-wrap:anywhere] [word-break:break-word]"
         />
       </div>
 
