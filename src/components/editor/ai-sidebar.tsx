@@ -544,17 +544,6 @@ export function AISidebar({
                 );
               })}
 
-              {/* Initial spinner — waiting for first chunk */}
-              {chatLoading && messages[messages.length - 1]?.role === "assistant" &&
-                (messages[messages.length - 1] as AssistantMessage).content === "" &&
-                (messages[messages.length - 1] as AssistantMessage).insertions.length === 0 && (
-                <div className="flex justify-start">
-                  <div className="bg-muted p-3 rounded-lg">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  </div>
-                </div>
-              )}
-
               <div ref={chatEndRef} />
             </div>
           </ScrollArea>
