@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { NoteView } from "@/components/note/note-view";
 import { CommentsSection } from "@/components/note/comments-section";
+import { NoteDonationButton } from "@/components/note/note-donation-button";
 import { NoteQualityPanel } from "@/components/note/note-quality-panel";
 import { NoteAiDetectionPanel } from "@/components/note/note-ai-detection-panel";
 import { NotePurchaseWall } from "@/components/note/note-purchase-wall";
@@ -195,6 +196,14 @@ export default async function NotePage({ params }: NotePageProps) {
                 isExclusive={isExclusive}
                 isSold={isSold}
               />
+              {notePrice === 0 && !isAuthor && (
+                <NoteDonationButton
+                  noteId={note.id}
+                  authorUsername={author.username}
+                  currentUserPoints={userPointsBalance ?? 0}
+                  isLoggedIn={!!currentUser}
+                />
+              )}
               <CommentsSection
                 noteId={note.id}
                 initialComments={(comments as any) ?? []}

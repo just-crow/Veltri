@@ -282,6 +282,62 @@ export async function chatWithPuter(params: {
   return reply || "I couldn't generate a response.";
 }
 
+/**
+ * Streaming variant of chatWithPuter.
+ * Calls `onChunk` with each new text fragment as it arrives.
+ * Falls back to non-streaming if the runtime does not support it.
+ */
+export async function chatWithPuterStream(params: {
+  message: string;
+  noteContent: string;
+  history: ChatMessage[];
+  onChunk: (chunk: string) => void;
+}): Promise<string> {
+  const puter = await waitForPuter();
+
+  const messages: PuterMessage[] = [
+    {
+      role: "system",
+      content: `You are a helpful AI writing assistant. The user is working on a note and wants your help.\n\nHere is the current note content:\n---\n${(params.noteContent || "").substring(0, 6000)}\n---\n\nAnswer the user's questions helpfully and concisely. Use **bold** and *italic* markdown for emphasis when useful.\n\nYou also have access to an insert tool. When you want to suggest inserting new text at a specific position in the note, use this exact format on its own line:\n<insert_tool line="N">The text to insert here</insert_tool>\nReplace N with the paragraph number (1 = insert before first paragraph, 2 = after first paragraph, etc.). Explain your suggestion before or after the tag. The user will see an Accept/Ignore prompt for each suggestion.`,
+    },
+    ...params.history.map((msg) => ({
+      role: msg.role as PuterMessageRole,
+      content: msg.content,
+    })),
+    { role: "user" as PuterMessageRole, content: params.message },
+  ];
+
+  let fullText = "";
+
+  try {
+    const response = await puter.ai!.chat(messages, {
+      model: modelName(),
+      temperature: 0.5,
+      max_tokens: 2000,
+      stream: true,
+    });
+
+    // Puter streaming returns an AsyncIterable of chunks
+    for await (const chunk of response as AsyncIterable<{ text?: string; toString?: () => string }>) {
+      const piece =
+        typeof chunk === "string"
+          ? chunk
+          : chunk?.text ?? (typeof chunk?.toString === "function" ? chunk.toString() : "");
+      if (piece) {
+        fullText += piece;
+        params.onChunk(piece);
+      }
+    }
+  } catch {
+    // Fallback: non-streaming
+    const reply = await callPuter(messages, { temperature: 0.5, max_tokens: 2000 });
+    fullText = reply;
+    params.onChunk(reply);
+  }
+
+  return cleanModelText(fullText) || "I couldn't generate a response.";
+}
+
 export async function scoreWithPuter(params: {
   content: string;
   title: string;

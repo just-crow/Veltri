@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { NoteDownloadButton } from "./note-download-button";
-import { SafeHtmlContent } from "./safe-html-content";
+import { ExpandableNoteContent } from "./expandable-note-content";
 import { Star, ShieldCheck, FileText, ShieldAlert } from "lucide-react";
 import type { Note, User, Tag } from "@/lib/types";
 
@@ -121,10 +121,7 @@ export function NoteView({ note, author, tags, originalFileUrl, isExclusive = fa
       </header>
 
       {/* Content */}
-      <SafeHtmlContent
-        html={note.content || ""}
-        className="prose prose-lg dark:prose-invert max-w-none overflow-x-auto break-words"
-      />
+      <ExpandableNoteContent html={note.content || ""} />
 
       {/* Originality disclaimer for exclusive notes */}
       {isExclusive && (

@@ -1018,7 +1018,7 @@ export default function NoteEditorPage() {
             animate={{ x: 0 }}
             exit={{ x: 384 }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-16 bottom-0 w-96 border-l bg-background overflow-y-auto hidden md:block"
+            className="fixed right-0 top-16 bottom-0 w-96 border-l bg-background overflow-y-auto hidden md:block z-40"
           >
             <AISidebar
               noteContent={rawMarkdown || content}

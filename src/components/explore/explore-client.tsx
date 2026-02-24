@@ -8,20 +8,17 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Search, Globe } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import type { Note, User } from "@/lib/types";
-import { NoteScoreBadge } from "@/components/note/note-score-badge";
 import { NotePriceBadge } from "@/components/note/note-price-badge";
-import { StarDisplay } from "@/components/profile/user-reviews-list";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 function inferFileType(note: Note): string {
   const mime = (note.original_file_type || "").toLowerCase();
@@ -38,11 +35,11 @@ function inferFileType(note: Note): string {
 function fileTypeBadgeClass(type: string): string {
   switch (type) {
     case "PDF":
-      return "border-red-300/60 text-red-600 dark:border-red-400/40 dark:text-red-400";
+      return "text-rose-500/80 dark:text-rose-400/70 bg-rose-500/8 rounded px-1 py-0.5";
     case "DOCX":
-      return "border-blue-300/60 text-blue-600 dark:border-blue-400/40 dark:text-blue-400";
+      return "text-blue-500/80 dark:text-blue-400/70 bg-blue-500/8 rounded px-1 py-0.5";
     default:
-      return "";
+      return "text-muted-foreground/70 bg-muted/60 rounded px-1 py-0.5";
   }
 }
 
@@ -123,6 +120,7 @@ export function ExploreClient({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <AnimatePresence>
           {initialNotes.map((note, i) => (
             <motion.div
               key={note.id}
@@ -132,72 +130,79 @@ export function ExploreClient({
               whileHover={{ y: -4, transition: { duration: 0.18 } }}
             >
               <Link href={`/note/${note.users?.username}/${note.slug}`}>
-                <Card className="h-full hover:shadow-xl transition-shadow cursor-pointer group">
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="min-w-0 overflow-hidden group-hover:text-primary transition-colors">
-                        <span className="block line-clamp-2 break-all" title={note.title}>{note.title}</span>
+                <Card className="h-full flex flex-col hover:shadow-lg transition-shadow cursor-pointer group">
+                  <CardHeader className="space-y-1.5 pb-3">
+                    {/* Row 1: Title + Price */}
+                    <div className="flex items-start justify-between gap-3">
+                      <CardTitle className="text-base font-semibold leading-snug tracking-tight line-clamp-2 group-hover:text-primary transition-colors">
+                        {note.title.replace(/_/g, " ")}
                       </CardTitle>
-                      <div className="shrink-0">
+                      <div className="shrink-0 mt-0.5">
                         <NotePriceBadge price={note.price} isExclusive={note.is_exclusive} isSold={note.is_sold} />
                       </div>
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <CardDescription className="shrink-0">
-                        {format(new Date(note.created_at), "MMM d, yyyy")}
-                      </CardDescription>
-                      <Badge variant="outline" className={`shrink-0 text-[10px] uppercase tracking-wide ${fileTypeBadgeClass(inferFileType(note))}`}>
+                    {/* Row 2: Date • Format (metadata grouped) */}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>{format(new Date(note.created_at), "MMM d, yyyy")}</span>
+                      <span className="text-muted-foreground/40">•</span>
+                      <span className={`text-xs ${fileTypeBadgeClass(inferFileType(note))}`}>
                         {inferFileType(note)}
-                      </Badge>
+                      </span>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground line-clamp-3">
+
+                  <CardContent className="flex-1 pb-4">
+                    <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
                       {note.summary || note.raw_markdown?.substring(0, 200) || ""}
                     </p>
                   </CardContent>
-                  <CardFooter className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage
-                          src={note.users?.avatar_url || ""}
-                          alt={note.users?.username}
-                        />
+
+                  <CardFooter className="mt-auto pt-3 border-t border-border/40 flex items-center justify-between gap-2">
+                    {/* Left: Avatar + username only */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar className="h-6 w-6 shrink-0">
+                        <AvatarImage src={note.users?.avatar_url || ""} alt={note.users?.username} />
                         <AvatarFallback className="text-xs">
                           {note.users?.username?.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex flex-col gap-0.5">
-                        <span
-                          className="text-sm text-muted-foreground hover:text-foreground hover:underline cursor-pointer leading-none"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            router.push(`/u/${note.users?.username}`);
-                          }}
-                        >
-                          {note.users?.username}
-                        </span>
-                        {userRatings[(note.users as any)?.id] && (
-                          <StarDisplay
-                            rating={userRatings[(note.users as any).id]}
-                            size="sm"
-                          />
-                        )}
-                      </div>
+                      <span
+                        className="text-sm text-muted-foreground hover:text-foreground hover:underline cursor-pointer truncate"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          router.push(`/u/${note.users?.username}`);
+                        }}
+                      >
+                        {note.users?.username}
+                      </span>
                     </div>
-                    <NoteScoreBadge
-                      noteId={note.id}
-                      content={note.raw_markdown || note.summary || ""}
-                      title={note.title}
-                      preloadedScore={note.validation_score}
-                      preloadedReason={(note as any).validation_feedback ?? undefined}
-                    />
+
+                    {/* Right: ★ score /10 with tooltip */}
+                    {note.validation_score != null && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 shrink-0 text-sm cursor-help">
+                            <span className="text-amber-400">★</span>
+                            <span className="font-medium text-foreground">
+                              {Number(note.validation_score).toFixed(1)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">/10</span>
+                          </div>
+                        </TooltipTrigger>
+                        {(note as any).validation_feedback && (
+                          <TooltipContent side="top" className="max-w-[200px] text-xs">
+                            {(note as any).validation_feedback}
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    )}
                   </CardFooter>
                 </Card>
               </Link>
             </motion.div>
           ))}
+          </AnimatePresence>
         </div>
       )}
 

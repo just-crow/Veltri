@@ -23,7 +23,7 @@ import type { AIValidation, ChatMessage } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 import DOMPurify from "isomorphic-dompurify";
 import {
-  chatWithPuter,
+  chatWithPuterStream,
   generateSummaryWithPuter,
   suggestTagsWithPuter,
   validateWithPuter,
@@ -201,24 +201,43 @@ export function AISidebar({
     if (!chatInput.trim() || chatLoading) return;
 
     const userMessage: ChatMessage = { role: "user", content: chatInput };
+    const history = [...chatMessages];
     setChatMessages((prev) => [...prev, userMessage]);
     setChatInput("");
     setChatLoading(true);
 
+    // Add an empty assistant message that we'll fill with streamed chunks
+    setChatMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
     try {
-      const reply = await chatWithPuter({
+      await chatWithPuterStream({
         message: chatInput,
         noteContent,
-        history: chatMessages,
+        history,
+        onChunk: (chunk) => {
+          setChatMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === "assistant") {
+              updated[updated.length - 1] = {
+                ...last,
+                content: last.content + chunk,
+              };
+            }
+            return updated;
+          });
+        },
       });
-
-      const assistantMessage: ChatMessage = {
-        role: "assistant",
-        content: reply,
-      };
-      setChatMessages((prev) => [...prev, assistantMessage]);
     } catch (err: any) {
       toast.error(err.message);
+      // Remove the empty placeholder on error
+      setChatMessages((prev) => {
+        const updated = [...prev];
+        if (updated[updated.length - 1]?.role === "assistant" && !updated[updated.length - 1].content) {
+          updated.pop();
+        }
+        return updated;
+      });
     } finally {
       setChatLoading(false);
     }
@@ -414,6 +433,7 @@ export function AISidebar({
                 }
 
                 const { cleanText, insertions } = parseInsertTools(msg.content);
+                const isStreaming = chatLoading && i === chatMessages.length - 1 && msg.content !== "";
                 return (
                   <motion.div
                     key={i}
@@ -422,10 +442,14 @@ export function AISidebar({
                     className="flex flex-col gap-2"
                   >
                     <div className="flex justify-start">
-                      <div
-                        className="max-w-[85%] p-3 rounded-lg text-sm bg-muted"
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderMd(cleanText || msg.content)) }}
-                      />
+                      <div className="max-w-[85%] p-3 rounded-lg text-sm bg-muted">
+                        <div
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderMd(cleanText || msg.content)) }}
+                        />
+                        {isStreaming && (
+                          <span className="inline-block w-[2px] h-[1em] bg-foreground/70 align-middle ml-0.5 animate-pulse" />
+                        )}
+                      </div>
                     </div>
                     <AnimatePresence>
                       {insertions.map((ins, j) => {
@@ -472,7 +496,8 @@ export function AISidebar({
                   </motion.div>
                 );
               })}
-              {chatLoading && (
+              {/* Show spinner only while waiting for first streaming chunk */}
+              {chatLoading && chatMessages[chatMessages.length - 1]?.content === "" && (
                 <div className="flex justify-start">
                   <div className="bg-muted p-3 rounded-lg">
                     <Loader2 className="h-4 w-4 animate-spin" />
