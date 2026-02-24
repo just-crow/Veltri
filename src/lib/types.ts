@@ -391,6 +391,7 @@ export type AIValidation = {
   isValid: boolean;
   feedback: string;
   grammar_score: number;
+  accuracy_score?: number;
 };
 
 export type AISummary = {

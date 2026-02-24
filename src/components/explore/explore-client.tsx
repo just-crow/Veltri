@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
-import { Search, Globe } from "lucide-react";
+import { Search, Globe, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Note, User } from "@/lib/types";
 import { NotePriceBadge } from "@/components/note/note-price-badge";
@@ -43,6 +43,14 @@ function fileTypeBadgeClass(type: string): string {
   }
 }
 
+interface ActiveFilters {
+  sort: string;
+  type: string;
+  price: string;
+  exclusive: string;
+  minScore: number;
+}
+
 interface ExploreClientProps {
   initialNotes: (Note & { users: User })[];
   initialQuery: string;
@@ -50,6 +58,23 @@ interface ExploreClientProps {
   currentPage: number;
   perPage: number;
   userRatings?: Record<string, number>;
+  activeFilters?: ActiveFilters;
+}
+
+function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-colors border ${
+        active
+          ? "bg-primary text-primary-foreground border-primary"
+          : "bg-background text-muted-foreground border-border hover:border-foreground/30 hover:text-foreground"
+      }`}
+    >
+      {label}
+    </button>
+  );
 }
 
 export function ExploreClient({
@@ -59,16 +84,54 @@ export function ExploreClient({
   currentPage,
   perPage,
   userRatings = {},
+  activeFilters,
 }: ExploreClientProps) {
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const router = useRouter();
   const totalPages = Math.ceil(totalCount / perPage);
 
+  const currentSort = activeFilters?.sort || "newest";
+  const currentType = activeFilters?.type || "all";
+  const currentPrice = activeFilters?.price || "all";
+  const currentExclusive = activeFilters?.exclusive || "all";
+  const currentMinScore = activeFilters?.minScore || 0;
+
+  const buildUrl = (overrides: Partial<{ q: string; sort: string; type: string; price: string; exclusive: string; minScore: number; page: number }>) => {
+    const params = new URLSearchParams();
+    const q = overrides.q ?? searchQuery;
+    const sort = overrides.sort ?? currentSort;
+    const type = overrides.type ?? currentType;
+    const price = overrides.price ?? currentPrice;
+    const exclusive = overrides.exclusive ?? currentExclusive;
+    const minScore = overrides.minScore ?? currentMinScore;
+    const page = overrides.page;
+
+    if (q) params.set("q", q);
+    if (sort && sort !== "newest") params.set("sort", sort);
+    if (type && type !== "all") params.set("type", type);
+    if (price && price !== "all") params.set("price", price);
+    if (exclusive && exclusive !== "all") params.set("exclusive", exclusive);
+    if (minScore > 0) params.set("minScore", String(minScore));
+    if (page && page > 1) params.set("page", String(page));
+    return `/explore?${params.toString()}`;
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const params = new URLSearchParams();
-    if (searchQuery) params.set("q", searchQuery);
-    router.push(`/explore?${params.toString()}`);
+    router.push(buildUrl({ q: searchQuery }));
+  };
+
+  const hasActiveFilters =
+    currentSort !== "newest" ||
+    currentType !== "all" ||
+    currentPrice !== "all" ||
+    currentExclusive !== "all" ||
+    currentMinScore > 0;
+
+  const activeFilterCount = [currentSort !== "newest", currentType !== "all", currentPrice !== "all", currentExclusive !== "all", currentMinScore > 0].filter(Boolean).length;
+
+  const clearFilters = () => {
+    router.push(buildUrl({ sort: "newest", type: "all", price: "all", exclusive: "all", minScore: 0 }));
   };
 
   return (
@@ -99,6 +162,73 @@ export function ExploreClient({
           </div>
           <Button type="submit">Search</Button>
         </form>
+      </div>
+
+      {/* ── Filter bar ── */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        {/* Left: filters */}
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+          {/* Sort */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">Sort</span>
+            {(["newest", "oldest", "top-rated", "price-low"] as const).map((v) => {
+              const labels: Record<string, string> = { newest: "New", oldest: "Old", "top-rated": "Top", "price-low": "Price ↑" };
+              return <FilterChip key={v} label={labels[v]} active={currentSort === v} onClick={() => router.push(buildUrl({ sort: v }))} />;
+            })}
+          </div>
+
+          <span className="hidden sm:inline-block w-px h-4 bg-border" />
+
+          {/* File type */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">Type</span>
+            {(["all", "note", "pdf", "docx"] as const).map((v) => {
+              const labels: Record<string, string> = { all: "All", note: "Note", pdf: "PDF", docx: "DOCX" };
+              return <FilterChip key={v} label={labels[v]} active={currentType === v} onClick={() => router.push(buildUrl({ type: v }))} />;
+            })}
+          </div>
+
+          <span className="hidden sm:inline-block w-px h-4 bg-border" />
+
+          {/* Price */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">Price</span>
+            {(["all", "free", "paid"] as const).map((v) => (
+              <FilterChip key={v} label={v.charAt(0).toUpperCase() + v.slice(1)} active={currentPrice === v} onClick={() => router.push(buildUrl({ price: v }))} />
+            ))}
+          </div>
+
+          <span className="hidden sm:inline-block w-px h-4 bg-border" />
+
+          {/* Score */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">Score</span>
+            {([0, 5, 7, 9] as const).map((v) => (
+              <FilterChip key={v} label={v === 0 ? "Any" : `${v}+`} active={currentMinScore === v} onClick={() => router.push(buildUrl({ minScore: v }))} />
+            ))}
+          </div>
+        </div>
+
+        {/* Right: exclusive */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Exclusive</span>
+          {(["all", "yes", "no"] as const).map((v) => {
+            const labels: Record<string, string> = { all: "All", yes: "Only", no: "Hide" };
+            return <FilterChip key={v} label={labels[v]} active={currentExclusive === v} onClick={() => router.push(buildUrl({ exclusive: v }))} />;
+          })}
+        </div>
+
+        {/* Clear */}
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            <X className="h-3 w-3" />
+            Clear filters
+          </button>
+        )}
       </div>
 
       {initialQuery && (
@@ -219,10 +349,7 @@ export function ExploreClient({
             size="sm"
             disabled={currentPage === 1}
             onClick={() => {
-              const params = new URLSearchParams();
-              if (initialQuery) params.set("q", initialQuery);
-              params.set("page", String(currentPage - 1));
-              router.push(`/explore?${params.toString()}`);
+              router.push(buildUrl({ page: currentPage - 1 }));
             }}
           >
             Previous
@@ -235,10 +362,7 @@ export function ExploreClient({
             size="sm"
             disabled={currentPage === totalPages}
             onClick={() => {
-              const params = new URLSearchParams();
-              if (initialQuery) params.set("q", initialQuery);
-              params.set("page", String(currentPage + 1));
-              router.push(`/explore?${params.toString()}`);
+              router.push(buildUrl({ page: currentPage + 1 }));
             }}
           >
             Next

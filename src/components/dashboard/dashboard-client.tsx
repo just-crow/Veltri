@@ -348,12 +348,12 @@ export function DashboardClient({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
             >
-              <Card className="group hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
+              <Card className="group hover:shadow-md transition-shadow overflow-hidden">
+                <CardHeader className="pb-3 overflow-hidden">
+                  <div className="flex items-start justify-between gap-2 min-w-0">
                     <div className="flex-1 min-w-0 overflow-hidden">
-                      <CardTitle className="text-lg truncate">
-                        {note.title}
+                      <CardTitle className="text-lg truncate block max-w-full">
+                        {note.title.replace(/_/g, " ")}
                       </CardTitle>
                         <div className="mt-1 flex items-center gap-2">
                           <CardDescription className="shrink-0">
@@ -501,12 +501,12 @@ export function DashboardClient({
                       transition={{ delay: i * 0.05 }}
                     >
                       <Link href={`/note/${note.users?.username}/${note.slug}`}>
-                        <Card className="group hover:shadow-md transition-shadow cursor-pointer">
-                          <CardHeader className="pb-3">
-                            <div className="flex items-start justify-between gap-2">
+                        <Card className="group hover:shadow-md transition-shadow cursor-pointer overflow-hidden">
+                          <CardHeader className="pb-3 overflow-hidden">
+                            <div className="flex items-start justify-between gap-2 min-w-0">
                               <div className="flex-1 min-w-0 overflow-hidden">
-                                <CardTitle className="text-lg truncate">
-                                  {note.title}
+                                <CardTitle className="text-lg truncate block max-w-full">
+                                  {note.title.replace(/_/g, " ")}
                                 </CardTitle>
                                 <div className="mt-1 flex items-center gap-2">
                                   <CardDescription className="shrink-0 truncate">

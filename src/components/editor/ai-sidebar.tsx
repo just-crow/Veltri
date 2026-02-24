@@ -24,10 +24,10 @@ import type { AIValidation, ChatMessage } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 import DOMPurify from "isomorphic-dompurify";
 import {
-  chatWithPuterStream,
-  generateSummaryWithPuter,
-  suggestTagsWithPuter,
-  validateWithPuter,
+  chatStream,
+  generateSummary,
+  suggestTags,
+  validateContent,
 } from "@/lib/nvidia-browser";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -161,6 +161,7 @@ interface AISidebarProps {
     isValid: boolean;
     feedback: string;
     grammar_score: number;
+    accuracy_score?: number;
   } | null;
   onSummaryGenerated: (summary: string) => void;
   onTagsSuggested: (tag: string) => void;
@@ -223,7 +224,7 @@ export function AISidebar({
     if (!noteContent.trim()) { toast.error("Write some content first"); return; }
     setSummaryLoading(true);
     try {
-      const next = (await generateSummaryWithPuter(noteContent)).trim();
+      const next = (await generateSummary(noteContent)).trim();
       if (!next) throw new Error("AI returned an empty summary. Try again.");
       setSummary(next);
       onSummaryGenerated(next);
@@ -236,7 +237,7 @@ export function AISidebar({
     if (!noteContent.trim()) { toast.error("Write some content first"); return; }
     setValidationLoading(true);
     try {
-      const data = await validateWithPuter(noteContent);
+      const data = await validateContent(noteContent);
       setValidation(data);
       data.isValid ? toast.success("Content looks great!") : toast.warning("Content needs some improvements");
     } catch (err: any) { toast.error(err.message); }
@@ -247,7 +248,7 @@ export function AISidebar({
     if (!noteContent.trim()) { toast.error("Write some content first"); return; }
     setTagsLoading(true);
     try {
-      const tags = await suggestTagsWithPuter(noteContent, existingTags);
+      const tags = await suggestTags(noteContent, existingTags);
       setSuggestedTags(tags);
       toast.success("Tags suggested!");
     } catch (err: any) { toast.error(err.message); }
@@ -286,7 +287,7 @@ export function AISidebar({
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
     try {
-      await chatWithPuterStream({
+      await chatStream({
         message: userText,
         noteContent,
         history: apiHistory,
@@ -380,9 +381,10 @@ export function AISidebar({
                   : <AlertTriangle className="h-5 w-5 text-yellow-500" />}
                 <span className="font-medium">{validation.isValid ? "Content is valid" : "Needs improvement"}</span>
               </div>
+              {/* Main score card */}
               <div className="p-3 bg-muted rounded-lg space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Quality Score</span>
+                  <span className="text-sm font-medium">Average Score</span>
                   <Badge variant={validation.grammar_score >= 8 ? "default" : validation.grammar_score >= 5 ? "secondary" : "destructive"}>
                     {validation.grammar_score}/10
                   </Badge>
@@ -390,6 +392,25 @@ export function AISidebar({
                 <Separator />
                 <p className="text-sm">{validation.feedback}</p>
               </div>
+              {/* Breakdown scores */}
+              {validation.accuracy_score != null && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-3 bg-muted rounded-lg flex flex-col items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Quality</span>
+                    <span className={`text-xl font-bold ${validation.grammar_score >= 8 ? "text-green-500" : validation.grammar_score >= 5 ? "text-yellow-500" : "text-destructive"}`}>
+                      {validation.grammar_score}
+                      <span className="text-sm font-normal text-muted-foreground">/10</span>
+                    </span>
+                  </div>
+                  <div className="p-3 bg-muted rounded-lg flex flex-col items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Accuracy</span>
+                    <span className={`text-xl font-bold ${validation.accuracy_score >= 8 ? "text-green-500" : validation.accuracy_score >= 5 ? "text-yellow-500" : "text-destructive"}`}>
+                      {validation.accuracy_score}
+                      <span className="text-sm font-normal text-muted-foreground">/10</span>
+                    </span>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </TabsContent>
@@ -425,7 +446,7 @@ export function AISidebar({
         {/* ── Chat Tab ── */}
         <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 overflow-hidden p-0">
           <div className="px-3 py-2 border-b shrink-0 flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Chat with AI about your note (history saved).</p>
+            <p className="text-xs text-muted-foreground">Chat with AI about your note.</p>
             {messages.length > 0 && (
               <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={handleClearHistory} title="Clear history">
                 <Trash2 className="h-3.5 w-3.5" />

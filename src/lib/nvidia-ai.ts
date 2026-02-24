@@ -1,5 +1,5 @@
 // NVIDIA NIM API client (server-side)
-// Model: nvidia/llama-3.3-nemotron-super-49b-v1.5
+// Model: stepfun-ai/step-3.5-flash (override via NVIDIA_MODEL env var)
 // OpenAI-compatible endpoint: https://integrate.api.nvidia.com/v1
 
 export type ChatRole = "system" | "user" | "assistant" | "tool"
@@ -14,12 +14,11 @@ interface NvidiaOptions {
   temperature?: number
   maxTokens?: number
   stream?: boolean
-  noThink?: boolean  // prepends /no_think to system prompt — skips <think> entirely
 }
 
 interface ChatCompletionsChoice {
-  message?: { content?: string }
-  delta?: { content?: string }
+  message?: { content?: string | null; reasoning_content?: string | null }
+  delta?: { content?: string; reasoning_content?: string }
 }
 
 interface ChatCompletionsResponse {
@@ -27,7 +26,7 @@ interface ChatCompletionsResponse {
 }
 
 const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-const DEFAULT_MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+const DEFAULT_MODEL = "stepfun-ai/step-3.5-flash"
 
 function getModel(options?: NvidiaOptions): string {
   return options?.model || process.env.NVIDIA_MODEL || DEFAULT_MODEL
@@ -44,7 +43,9 @@ function stripThinking(text: string): string {
 }
 
 function normalizeResponse(data: ChatCompletionsResponse): string {
-  const raw = data.choices?.[0]?.message?.content?.trim() || ""
+  const msg = data.choices?.[0]?.message
+  // content = actual answer, reasoning/reasoning_content = thinking (never use as answer)
+  const raw = msg?.content?.trim() || ""
   return stripThinking(raw)
 }
 
@@ -58,8 +59,8 @@ function localChatFallback(messages: ChatMessage[]): string {
 function localPromptFallback(prompt: string): string {
   const lowered = prompt.toLowerCase()
   if (lowered.includes('"tags"')) return JSON.stringify({ tags: ["general", "notes", "study"] })
-  if (lowered.includes('"isvalid"')) return JSON.stringify({ isValid: true, feedback: "The content is useful and reasonably structured.", grammar_score: 7, accuracy_score: 7, learning_value_score: 7 })
-  if (lowered.includes('"score"') && lowered.includes('"reason"')) return JSON.stringify({ score: 7, reason: "The note is on-topic and useful." })
+  if (lowered.includes('"isvalid"')) return "__AI_UNAVAILABLE__"
+  if (lowered.includes('"score"') && lowered.includes('"reason"')) return "__AI_UNAVAILABLE__"
   if (lowered.includes("concise 2-sentence summary")) {
     const source = prompt.replace(/[\s\S]*Note content:\n/, "").trim().slice(0, 260)
     return `${source.split(/(?<=[.!?])\s+/)[0] || source} This summary was auto-generated.`
@@ -67,47 +68,58 @@ function localPromptFallback(prompt: string): string {
   return "I couldn't reach the AI provider. Please try again shortly."
 }
 
-async function callNvidia(messages: ChatMessage[], options?: NvidiaOptions): Promise<string | null> {
-  try {
-    // Inject /no_think into the system prompt to skip the <think> block entirely
-    let finalMessages = messages
-    if (options?.noThink) {
-      const hasSystem = finalMessages[0]?.role === "system"
-      if (hasSystem) {
-        finalMessages = [
-          { ...finalMessages[0], content: `/no_think ${finalMessages[0].content}` },
-          ...finalMessages.slice(1),
-        ]
-      } else {
-        finalMessages = [
-          { role: "system", content: "/no_think" },
-          ...finalMessages,
-        ]
+async function callNvidia(messages: ChatMessage[], options?: NvidiaOptions, retries = 2): Promise<string | null> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 90_000) // 30s timeout
+    try {
+      const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getApiKey()}`,
+        },
+        body: JSON.stringify({
+          model: getModel(options),
+          messages,
+          temperature: options?.temperature ?? 0.3,
+          max_tokens: options?.maxTokens ?? 4096,
+          top_p: 1,
+          stream: false,
+        }),
+        signal: controller.signal,
+        cache: "no-store" as RequestCache,
+      })
+      clearTimeout(timeout)
+      if (!res.ok) {
+        const body = await res.text()
+        console.error(`NVIDIA API ${res.status} (attempt ${attempt + 1}/${retries + 1}):`, body)
+        if (attempt < retries && (res.status >= 500 || res.status === 429)) {
+          await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)))
+          continue
+        }
+        return null
       }
+      const data = (await res.json()) as ChatCompletionsResponse
+      const result = normalizeResponse(data)
+      if (!result && attempt < retries) {
+        console.warn(`NVIDIA returned empty content (attempt ${attempt + 1}/${retries + 1}), retrying...`)
+        await new Promise((r) => setTimeout(r, 2000))
+        continue
+      }
+      return result || null
+    } catch (err: any) {
+      clearTimeout(timeout)
+      const isTimeout = err?.name === "AbortError"
+      console.error(`NVIDIA API ${isTimeout ? "timeout" : "error"} (attempt ${attempt + 1}/${retries + 1}):`, err?.message || err)
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)))
+        continue
+      }
+      return null
     }
-
-    const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${getApiKey()}`,
-      },
-      body: JSON.stringify({
-        model: getModel(options),
-        messages: finalMessages,
-        temperature: options?.temperature ?? 0.3,
-        max_tokens: options?.maxTokens ?? 2048,
-        top_p: 1,
-        stream: false,
-      }),
-    })
-    if (!res.ok) { console.error(`NVIDIA API ${res.status}:`, await res.text()); return null }
-    const data = (await res.json()) as ChatCompletionsResponse
-    return normalizeResponse(data) || null
-  } catch (err) {
-    console.error("NVIDIA API call failed:", err)
-    return null
   }
+  return null
 }
 
 // Streaming call — yields text chunks, stripping <think>...</think> blocks.
@@ -163,6 +175,7 @@ export async function* streamNvidia(messages: ChatMessage[], options?: NvidiaOpt
       }
       try {
         const parsed = JSON.parse(json) as ChatCompletionsResponse
+        // reasoning_content = thinking phase (skip it); content = actual reply
         const chunk = parsed.choices?.[0]?.delta?.content
         if (!chunk) continue
 

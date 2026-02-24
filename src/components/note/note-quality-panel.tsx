@@ -6,6 +6,7 @@ import { ShieldCheck, ShieldAlert, ShieldX, Shield } from "lucide-react";
 interface NoteQualityPanelProps {
   score: number | null;
   feedback: string | null;
+  accuracyScore?: number | null;
 }
 
 function getQualityConfig(score: number | null) {
@@ -35,7 +36,7 @@ function getQualityConfig(score: number | null) {
   };
 }
 
-export function NoteQualityPanel({ score, feedback }: NoteQualityPanelProps) {
+export function NoteQualityPanel({ score, feedback, accuracyScore }: NoteQualityPanelProps) {
   const config = getQualityConfig(score);
 
   if (!config || !score) return null;
@@ -85,6 +86,24 @@ export function NoteQualityPanel({ score, feedback }: NoteQualityPanelProps) {
       {/* Feedback */}
       {feedback && (
         <p className="text-xs leading-relaxed opacity-80">{feedback}</p>
+      )}
+
+      {/* Accuracy / Quality breakdown */}
+      {accuracyScore != null && (
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <div className="flex flex-col items-center rounded-lg bg-black/5 dark:bg-white/5 py-2 px-1">
+            <span className="text-[10px] opacity-60 mb-0.5">Quality</span>
+            <span className={`text-base font-bold leading-none ${score! >= 8 ? "text-green-600 dark:text-green-400" : score! >= 5 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>
+              {score}<span className="text-[10px] font-normal opacity-60">/10</span>
+            </span>
+          </div>
+          <div className="flex flex-col items-center rounded-lg bg-black/5 dark:bg-white/5 py-2 px-1">
+            <span className="text-[10px] opacity-60 mb-0.5">Accuracy</span>
+            <span className={`text-base font-bold leading-none ${accuracyScore >= 8 ? "text-green-600 dark:text-green-400" : accuracyScore >= 5 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>
+              {accuracyScore}<span className="text-[10px] font-normal opacity-60">/10</span>
+            </span>
+          </div>
+        </div>
       )}
     </motion.aside>
   );

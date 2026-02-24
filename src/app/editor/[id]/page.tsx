@@ -65,7 +65,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import type { Note, Tag } from "@/lib/types";
-import { validateWithPuter } from "@/lib/nvidia-browser";
+import { validateContent } from "@/lib/nvidia-browser";
 
 type PublishDetectionResult = {
   model: string;
@@ -140,6 +140,7 @@ export default function NoteEditorPage() {
     isValid: boolean;
     feedback: string;
     grammar_score: number;
+    accuracy_score?: number;
   } | null>(null);
   const [price, setPrice] = useState<number>(0);
   const [isExclusive, setIsExclusive] = useState(false);
@@ -253,8 +254,12 @@ export default function NoteEditorPage() {
       toast.info("Parsing file...");
       try {
         const res = await fetch("/api/parse-file", { method: "POST", body: formData });
+        if (!res.ok) {
+          let errMsg = "Parse failed";
+          try { const d = await res.json(); errMsg = d.error || errMsg; } catch { errMsg = await res.text().catch(() => errMsg); }
+          throw new Error(errMsg);
+        }
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Parse failed");
         editorRef.current?.setFileContent(data.html);
         if (!title && file.name) setTitle(file.name.replace(/\.[^.]+$/, ""));
         const uploaded = await uploadOriginalFile(file);
@@ -435,103 +440,35 @@ export default function NoteEditorPage() {
     const slug = slugify(title, { lower: true, strict: true });
     const nextIsPublished = publishOverride ?? isPublished;
 
-    // Auto-validate when publishing
-    const shouldValidate = nextIsPublished && rawMarkdown.trim().length > 20;
-    let nextValidationScore: number | null = nextIsPublished
-      ? validationScore
-      : null;
-    let nextValidationFeedback: string | null = nextIsPublished
-      ? validationFeedback
-      : null;
+    // ── Save / create the note immediately so the user can leave ──
+    const notePayload = {
+      title,
+      content,
+      raw_markdown: rawMarkdown,
+      slug,
+      is_published: nextIsPublished,
+      summary: description.trim() || null,
+      validation_score: nextIsPublished ? validationScore : null,
+      validation_feedback: nextIsPublished ? (validationFeedback || null) : null,
+      ai_detection_label: publishAiDetection?.label ?? null,
+      ai_detection_score: publishAiDetection?.score ?? null,
+      ai_detection_is_likely_ai: publishAiDetection?.isLikelyAI ?? null,
+      ai_detection_summary: publishAiDetection?.summary ?? null,
+      ai_detection_checked_at: publishAiDetection?.checkedAt ?? null,
+      original_file_name: uploadedFileName || null,
+      original_file_path: uploadedFilePath || null,
+      original_file_type: uploadedFileType || null,
+      price: sanitizedPrice,
+      is_exclusive: isExclusive,
+      description: description.trim() || null,
+    };
 
-    if (shouldValidate) {
-      setValidating(true);
-      try {
-        const valData = await validateWithPuter(rawMarkdown);
-        if (valData.grammar_score) {
-          nextValidationScore = valData.grammar_score;
-          nextValidationFeedback = valData.feedback ?? null;
-          setValidationFeedback(nextValidationFeedback);
-          setAutoValidationResult({
-            isValid: valData.isValid,
-            feedback: valData.feedback,
-            grammar_score: valData.grammar_score,
-          });
-          const emoji = valData.isValid ? "✓" : "!";
-          toast.success(
-            `${emoji} Quality: ${valData.grammar_score}/10 — ${valData.feedback?.substring(0, 100)}...`
-          );
-        }
-      } catch (err) {
-        console.error("Validation error:", err);
-        toast.error("Failed to validate note quality");
-      } finally {
-        setValidating(false);
-      }
-    }
-
-    // AI detection when publishing
-    let nextAiDetection = publishAiDetection;
-    const shouldDetectAi = nextIsPublished && rawMarkdown.trim().length >= 40;
-    if (shouldDetectAi) {
-      setDetectingAi(true);
-      try {
-        const res = await fetch("/api/ai/detect", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: rawMarkdown }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "AI detection failed");
-        }
-
-        nextAiDetection = {
-          model: data.model,
-          label: data.label,
-          score: Number(data.score),
-          isLikelyAI: Boolean(data.isLikelyAI),
-          summary: String(data.summary),
-          checkedAt: new Date().toISOString(),
-        };
-        setPublishAiDetection(nextAiDetection);
-        toast.success(`AI detection: ${nextAiDetection.summary}`);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Detection failed";
-        toast.error(`AI detection failed: ${message}`);
-      } finally {
-        setDetectingAi(false);
-      }
-    } else if (!nextIsPublished) {
-      nextAiDetection = null;
-      setPublishAiDetection(null);
-    }
+    let savedNoteId = currentNoteId;
 
     if (currentNoteId) {
-      // Update existing note
       const { error } = await (supabase as any)
         .from("notes")
-        .update({
-          title,
-          content,
-          raw_markdown: rawMarkdown,
-          slug,
-          is_published: nextIsPublished,
-          summary: description.trim() || null,
-          validation_score: nextValidationScore,
-          validation_feedback: nextValidationScore ? (nextValidationFeedback || null) : null,
-          ai_detection_label: nextAiDetection?.label ?? null,
-          ai_detection_score: nextAiDetection?.score ?? null,
-          ai_detection_is_likely_ai: nextAiDetection?.isLikelyAI ?? null,
-          ai_detection_summary: nextAiDetection?.summary ?? null,
-          ai_detection_checked_at: nextAiDetection?.checkedAt ?? null,
-          original_file_name: uploadedFileName || null,
-          original_file_path: uploadedFilePath || null,
-          original_file_type: uploadedFileType || null,
-          price: sanitizedPrice,
-          is_exclusive: isExclusive,
-          description: description.trim() || null,
-        })
+        .update(notePayload)
         .eq("id", currentNoteId);
 
       if (error) {
@@ -540,36 +477,12 @@ export default function NoteEditorPage() {
         return;
       }
 
-      toast.success("Note saved!");
-      setValidationScore(nextValidationScore);
-      setValidationFeedback(nextValidationFeedback);
       setIsPublished(nextIsPublished);
+      toast.success("Note saved!");
     } else {
-      // Create new note
       const { data, error } = await (supabase as any)
         .from("notes")
-        .insert({
-          user_id: user.id,
-          title,
-          content,
-          raw_markdown: rawMarkdown,
-          slug,
-          is_published: nextIsPublished,
-          summary: description.trim() || null,
-          validation_score: nextValidationScore,
-          validation_feedback: nextValidationScore ? (nextValidationFeedback || null) : null,
-          ai_detection_label: nextAiDetection?.label ?? null,
-          ai_detection_score: nextAiDetection?.score ?? null,
-          ai_detection_is_likely_ai: nextAiDetection?.isLikelyAI ?? null,
-          ai_detection_summary: nextAiDetection?.summary ?? null,
-          ai_detection_checked_at: nextAiDetection?.checkedAt ?? null,
-          original_file_name: uploadedFileName || null,
-          original_file_path: uploadedFilePath || null,
-          original_file_type: uploadedFileType || null,
-          price: sanitizedPrice,
-          is_exclusive: isExclusive,
-          description: description.trim() || null,
-        })
+        .insert({ user_id: user.id, ...notePayload })
         .select()
         .single();
 
@@ -580,15 +493,108 @@ export default function NoteEditorPage() {
       }
 
       const newNote = data as Note;
+      savedNoteId = newNote.id;
       setCurrentNoteId(newNote.id);
-      setValidationScore(nextValidationScore);
-      setValidationFeedback(nextValidationFeedback);
       setIsPublished(nextIsPublished);
       router.replace(`/editor/${newNote.id}`);
       toast.success("Note created!");
     }
 
     setSaving(false);
+
+    // ── Background AI tasks — run after save so navigation is safe ──
+    const shouldValidate = nextIsPublished && rawMarkdown.trim().length > 20;
+    const shouldDetectAi = nextIsPublished && rawMarkdown.trim().length >= 40;
+
+    if ((shouldValidate || shouldDetectAi) && savedNoteId) {
+      const bgNoteId = savedNoteId;
+      const bgContent = rawMarkdown;
+
+      // Fire background tasks without awaiting — they survive navigation
+      const bgValidation = shouldValidate
+        ? (async () => {
+            setValidating(true);
+            try {
+              const valData = await validateContent(bgContent);
+              if (valData.grammar_score) {
+                setValidationScore(valData.grammar_score);
+                setValidationFeedback(valData.feedback ?? null);
+                setAutoValidationResult({
+                  isValid: valData.isValid,
+                  feedback: valData.feedback,
+                  grammar_score: valData.grammar_score,
+                  accuracy_score: valData.accuracy_score,
+                });
+                const emoji = valData.isValid ? "✓" : "!";
+                toast.success(
+                  `${emoji} Quality: ${valData.grammar_score}/10 — ${valData.feedback?.substring(0, 100)}...`
+                );
+                return { score: valData.grammar_score, feedback: valData.feedback ?? null, accuracy_score: valData.accuracy_score ?? null };
+              }
+            } catch (err) {
+              console.error("Validation error:", err);
+            } finally {
+              setValidating(false);
+            }
+            return null;
+          })()
+        : Promise.resolve(null);
+
+      const bgDetection = shouldDetectAi
+        ? (async () => {
+            setDetectingAi(true);
+            try {
+              const res = await fetch("/api/ai/detect", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ content: bgContent }),
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || "AI detection failed");
+
+              const result: PublishDetectionResult = {
+                model: data.model,
+                label: data.label,
+                score: Number(data.score),
+                isLikelyAI: Boolean(data.isLikelyAI),
+                summary: String(data.summary),
+                checkedAt: new Date().toISOString(),
+              };
+              setPublishAiDetection(result);
+              toast.success(`AI detection: ${result.summary}`);
+              return result;
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : "Detection failed";
+              toast.error(`AI detection failed: ${message}`);
+            } finally {
+              setDetectingAi(false);
+            }
+            return null;
+          })()
+        : Promise.resolve(null);
+
+      // When both finish, write results back to the DB in one update
+      Promise.all([bgValidation, bgDetection]).then(async ([valResult, detectResult]) => {
+        const patch: Record<string, unknown> = {};
+        if (valResult) {
+          patch.validation_score = valResult.score;
+          patch.validation_feedback = valResult.feedback;
+          patch.validation_accuracy_score = valResult.accuracy_score;
+        }
+        if (detectResult) {
+          patch.ai_detection_label = detectResult.label;
+          patch.ai_detection_score = detectResult.score;
+          patch.ai_detection_is_likely_ai = detectResult.isLikelyAI;
+          patch.ai_detection_summary = detectResult.summary;
+          patch.ai_detection_checked_at = detectResult.checkedAt;
+        }
+        if (Object.keys(patch).length > 0) {
+          await (supabase as any).from("notes").update(patch).eq("id", bgNoteId);
+        }
+      });
+    } else if (!nextIsPublished) {
+      setPublishAiDetection(null);
+    }
   };
 
   const handleAddTag = async (tagName: string) => {

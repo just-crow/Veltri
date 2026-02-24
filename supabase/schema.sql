@@ -49,6 +49,7 @@ CREATE TABLE public.notes (
   summary TEXT,
   validation_score NUMERIC,
   validation_feedback TEXT,
+  validation_accuracy_score NUMERIC,
   ai_detection_label TEXT,
   ai_detection_score NUMERIC,
   ai_detection_is_likely_ai BOOLEAN,

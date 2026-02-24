@@ -44,15 +44,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = `You are a professional content summarizer. Read the following note content and generate a concise 2-sentence summary that captures the key points. The summary should be suitable for SEO meta descriptions and feed previews. Only return the summary text, nothing else.
+    const prompt = `Write a concise 2-sentence description of the note content below, suitable for use as an SEO meta description. Output ONLY the description itself — no labels, no introductory phrases, no quotation marks, no explanations. Begin immediately with the first word of the description.
 
 Note content:
 ${content.substring(0, 4000)}`;
 
-    let summary = await nvidiaPrompt(prompt, { temperature: 0.3, maxTokens: 400, noThink: true });
+    let summary = await nvidiaPrompt(prompt, { temperature: 0.3, maxTokens: 4096 });
 
     if (!summary) {
       summary = buildFallbackSummary(content);
+    } else {
+      // Strip any preamble the model may still prepend (e.g. 'Here is a summary:')
+      summary = summary
+        .replace(/^["']/, "")                          // leading quote
+        .replace(/["']$/, "")                          // trailing quote
+        .replace(/^(here is|here's|below is|this is)[^:]*:\s*/i, "")
+        .replace(/^[^:]*\bsummary\b[^:]*:\s*/i, "")
+        .replace(/^[^:]*\bdescription\b[^:]*:\s*/i, "")
+        .trim();
+
     }
 
     // If noteId is provided, save the summary to the database

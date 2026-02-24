@@ -3,6 +3,9 @@ import { requireAuth } from "@/lib/auth";
 import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
 import { nvidiaPrompt } from "@/lib/nvidia-ai";
 
+// Allow up to 60s for AI scoring (model can take 10-15s per attempt, with retries)
+export const maxDuration = 60;
+
 function clampScore(value: unknown): number | null {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return null;
@@ -76,9 +79,17 @@ Title: ${title || "Untitled"}
 Content (first 1500 chars): ${content.substring(0, 1500)}
 
 Return only this JSON object, no markdown and no extra text:
-{"score": 7, "reason": "Brief one-sentence reason focusing on relevancy and quality"}`;
+{"score": <number 1-10>, "reason": "Brief one-sentence reason focusing on relevancy and quality"}`;
 
-    const raw = await nvidiaPrompt(prompt, { temperature: 0.2, maxTokens: 2048, noThink: true });
+    const raw = await nvidiaPrompt(prompt, { temperature: 0.2, maxTokens: 8192 });
+
+    if (raw === "__AI_UNAVAILABLE__") {
+      return NextResponse.json(
+        { error: "AI service is temporarily unavailable. Please try again later." },
+        { status: 503 }
+      );
+    }
+
     const parsed = parseScoreResponse(raw);
 
     if (!parsed) {

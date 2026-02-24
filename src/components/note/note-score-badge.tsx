@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { motion } from "framer-motion";
-import { scoreWithPuter } from "@/lib/nvidia-browser";
+import { scoreNote } from "@/lib/nvidia-browser";
 
 interface NoteScoreBadgeProps {
   noteId: string;
@@ -61,7 +61,7 @@ export function NoteScoreBadge({ noteId, content, title, preloadedScore, preload
           observer.disconnect();
 
           setLoading(true);
-          scoreWithPuter({ content, title })
+          scoreNote({ content, title })
             .then((data) => {
               setScore(data.score);
               setReason(data.reason);

@@ -3,7 +3,7 @@
 import type { AIValidation, ChatMessage } from "@/lib/types";
 
 // Client-side AI helper — all calls go through /api/ai/* routes (NVIDIA NIM)
-// Model: nvidia/llama-3.3-nemotron-super-49b-v1.5
+// Model: stepfun-ai/step-3.5-flash
 
 async function post<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const res = await fetch(path, {
@@ -49,7 +49,7 @@ export async function suggestTags(content: string, existingTags: string[] = []):
 
 export async function validateContent(content: string): Promise<AIValidation> {
   try {
-    const data = await post<{ isValid?: boolean; feedback?: string; grammar_score?: number }>(
+    const data = await post<{ isValid?: boolean; feedback?: string; grammar_score?: number; accuracy_score?: number | null }>(
       "/api/ai/validate",
       { content }
     );
@@ -57,9 +57,11 @@ export async function validateContent(content: string): Promise<AIValidation> {
       isValid: Boolean(data.isValid),
       feedback: data.feedback || "No feedback provided.",
       grammar_score: data.grammar_score ?? 5,
+      accuracy_score: data.accuracy_score ?? undefined,
     };
-  } catch {
-    return { isValid: false, feedback: "Could not validate content. Please try again.", grammar_score: 5 };
+  } catch (err: any) {
+    // Don't silently return fake scores — rethrow so callers can handle or show the error
+    throw new Error(err?.message || "Content validation failed. Please try again.");
   }
 }
 
@@ -67,8 +69,8 @@ export async function scoreNote(params: { content: string; title: string }): Pro
   try {
     const data = await post<{ score?: number; reason?: string }>("/api/ai/score", params);
     return { score: data.score ?? 0, reason: data.reason || "Score generated." };
-  } catch {
-    return { score: 0, reason: "Scoring failed." };
+  } catch (err: any) {
+    throw new Error(err?.message || "Scoring failed. Please try again.");
   }
 }
 
@@ -132,10 +134,4 @@ export async function chat(params: {
   return data.reply || "I couldn't generate a response.";
 }
 
-// Legacy aliases so existing imports don't break during migration
-export const generateSummaryWithPuter = generateSummary;
-export const suggestTagsWithPuter = suggestTags;
-export const validateWithPuter = validateContent;
-export const scoreWithPuter = scoreNote;
-export const chatWithPuterStream = chatStream;
-export const chatWithPuter = chat;
+

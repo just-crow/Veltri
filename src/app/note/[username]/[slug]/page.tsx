@@ -177,6 +177,7 @@ export default async function NotePage({ params }: NotePageProps) {
             <NoteQualityPanel
               score={(note as any).validation_score ?? null}
               feedback={(note as any).validation_feedback ?? null}
+              accuracyScore={(note as any).validation_accuracy_score ?? null}
             />
             <NoteAiDetectionPanel
               label={(note as any).ai_detection_label ?? null}
@@ -252,6 +253,7 @@ export default async function NotePage({ params }: NotePageProps) {
           <NoteQualityPanel
             score={(note as any).validation_score ?? null}
             feedback={(note as any).validation_feedback ?? null}
+            accuracyScore={(note as any).validation_accuracy_score ?? null}
           />
           <NoteAiDetectionPanel
             label={(note as any).ai_detection_label ?? null}

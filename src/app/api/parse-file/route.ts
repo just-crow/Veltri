@@ -5,6 +5,7 @@ import { sanitizeHtml } from "@/lib/sanitize";
 
 // Must run in Node.js — pdf-parse and mammoth are not Edge-compatible
 export const runtime = "nodejs";
+export const maxRequestBodySize = "15mb";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".md", ".txt"];
@@ -53,9 +54,9 @@ export async function POST(request: NextRequest) {
 
     if (name.endsWith(".pdf")) {
       const buffer = Buffer.from(await file.arrayBuffer());
-      // Import from internal path to avoid the DOMMatrix test-file error
-      const pdfParse = (await import("pdf-parse/lib/pdf-parse.js" as string)).default;
-      const data = await pdfParse(buffer);
+      const { PDFParse } = await import("pdf-parse");
+      const parser = new PDFParse({ data: buffer });
+      const data = await parser.getText();
       const text = (data.text as string) || "";
       const html = sanitizeHtml(
         text
