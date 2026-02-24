@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
-import { puterPrompt } from "@/lib/puter-ai";
+import { nvidiaPrompt } from "@/lib/nvidia-ai";
 
 function clampScore(value: number): number {
   return Math.min(10, Math.max(1, Math.round(value)));
@@ -93,7 +93,7 @@ Scoring rule: If the content is factually wrong or misleading, grammar_score mus
 Text to review:
 ${content.substring(0, 4000)}`;
 
-    const responseText = await puterPrompt(prompt, {
+    const responseText = await nvidiaPrompt(prompt, {
       temperature: 0.2,
       maxTokens: 1100,
     });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
-import { puterPrompt } from "@/lib/puter-ai";
+import { nvidiaPrompt } from "@/lib/nvidia-ai";
 
 function clampScore(value: unknown): number | null {
   const numeric = Number(value);
@@ -78,7 +78,7 @@ Content (first 1500 chars): ${content.substring(0, 1500)}
 Return only this JSON object, no markdown and no extra text:
 {"score": 7, "reason": "Brief one-sentence reason focusing on relevancy and quality"}`;
 
-    const raw = await puterPrompt(prompt, {
+    const raw = await nvidiaPrompt(prompt, {
       temperature: 0.2,
       maxTokens: 1100,
     });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
-import { puterPrompt } from "@/lib/puter-ai";
+import { nvidiaPrompt } from "@/lib/nvidia-ai";
 
 function buildFallbackSummary(content: string): string {
   const cleaned = content
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 Note content:
 ${content.substring(0, 4000)}`;
 
-    let summary = await puterPrompt(prompt, {
+    let summary = await nvidiaPrompt(prompt, {
       temperature: 0.3,
       maxTokens: 220,
     });

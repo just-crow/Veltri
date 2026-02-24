@@ -65,7 +65,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import type { Note, Tag } from "@/lib/types";
-import { validateWithPuter } from "@/lib/puter-browser";
+import { validateWithPuter } from "@/lib/nvidia-browser";
 
 type PublishDetectionResult = {
   model: string;

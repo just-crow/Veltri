@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
-import { puterChat } from "@/lib/puter-ai";
-import type { PuterChatMessage } from "@/lib/puter-ai";
+import { nvidiaChat } from "@/lib/nvidia-ai";
+import type { ChatMessage } from "@/lib/nvidia-ai";
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,10 +57,10 @@ export async function POST(request: NextRequest) {
       // If we can't fetch notes, continue without them
     }
 
-    const normalizedHistory: PuterChatMessage[] = Array.isArray(history)
+    const normalizedHistory: ChatMessage[] = Array.isArray(history)
       ? history
-          .map((msg: { role?: string; content?: string }): PuterChatMessage => {
-            const role: PuterChatMessage["role"] =
+          .map((msg: { role?: string; content?: string }): ChatMessage => {
+            const role: ChatMessage["role"] =
               msg.role === "system" || msg.role === "assistant" || msg.role === "user"
                 ? msg.role
                 : "user";
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
           .filter((msg) => msg.content.trim().length > 0)
       : [];
 
-    const messages: PuterChatMessage[] = [
+    const messages: ChatMessage[] = [
       {
         role: "system",
         content: `You are a helpful AI writing assistant. The user is working on a note and wants your help.
@@ -95,7 +95,7 @@ Replace N with the paragraph number (1 = insert before first paragraph, 2 = afte
       },
     ];
 
-    const reply = await puterChat(messages, {
+    const reply = await nvidiaChat(messages, {
       temperature: 0.5,
       maxTokens: 2000,
     });

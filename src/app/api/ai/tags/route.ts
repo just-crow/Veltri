@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
-import { puterPrompt } from "@/lib/puter-ai";
+import { nvidiaPrompt } from "@/lib/nvidia-ai";
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,7 +51,7 @@ Each tag should be a single word or short phrase (max 2-3 words), lowercase, rel
 Text to tag:
 ${content.substring(0, 4000)}`;
 
-    const responseText = await puterPrompt(prompt, {
+    const responseText = await nvidiaPrompt(prompt, {
       temperature: 0.3,
       maxTokens: 260,
     });

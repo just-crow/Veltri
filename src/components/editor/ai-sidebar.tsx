@@ -27,7 +27,7 @@ import {
   generateSummaryWithPuter,
   suggestTagsWithPuter,
   validateWithPuter,
-} from "@/lib/puter-browser";
+} from "@/lib/nvidia-browser";
 
 interface InsertSuggestion {
   line: number;

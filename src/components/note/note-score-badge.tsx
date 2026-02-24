@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { motion } from "framer-motion";
-import { scoreWithPuter } from "@/lib/puter-browser";
+import { scoreWithPuter } from "@/lib/nvidia-browser";
 
 interface NoteScoreBadgeProps {
   noteId: string;
