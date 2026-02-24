@@ -38,8 +38,13 @@ function getApiKey(): string {
   return key
 }
 
+function stripThinking(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim()
+}
+
 function normalizeResponse(data: ChatCompletionsResponse): string {
-  return data.choices?.[0]?.message?.content?.trim() || ""
+  const raw = data.choices?.[0]?.message?.content?.trim() || ""
+  return stripThinking(raw)
 }
 
 function localChatFallback(messages: ChatMessage[]): string {
@@ -87,7 +92,7 @@ async function callNvidia(messages: ChatMessage[], options?: NvidiaOptions): Pro
   }
 }
 
-// Streaming call — yields text chunks via ReadableStream (SSE)
+// Streaming call — yields text chunks, stripping <think>...</think> blocks
 export async function* streamNvidia(messages: ChatMessage[], options?: NvidiaOptions): AsyncGenerator<string> {
   const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
     method: "POST",
@@ -112,14 +117,17 @@ export async function* streamNvidia(messages: ChatMessage[], options?: NvidiaOpt
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
-  let buffer = ""
+  let sseBuffer = ""
+  let thinkBuffer = ""  // accumulates text while inside a <think> block
+  let inThink = false
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split("\n")
-    buffer = lines.pop() ?? ""
+    sseBuffer += decoder.decode(value, { stream: true })
+    const lines = sseBuffer.split("\n")
+    sseBuffer = lines.pop() ?? ""
+
     for (const line of lines) {
       const trimmed = line.trim()
       if (!trimmed.startsWith("data:")) continue
@@ -128,7 +136,37 @@ export async function* streamNvidia(messages: ChatMessage[], options?: NvidiaOpt
       try {
         const parsed = JSON.parse(json) as ChatCompletionsResponse
         const chunk = parsed.choices?.[0]?.delta?.content
-        if (chunk) yield chunk
+        if (!chunk) continue
+
+        // Process chunk character by character to handle <think> blocks
+        let out = ""
+        let i = 0
+        const combined = chunk
+
+        while (i < combined.length) {
+          if (!inThink) {
+            const startIdx = combined.indexOf("<think>", i)
+            if (startIdx === -1) {
+              out += combined.slice(i)
+              break
+            }
+            out += combined.slice(i, startIdx)
+            inThink = true
+            thinkBuffer = ""
+            i = startIdx + 7
+          } else {
+            const endIdx = combined.indexOf("</think>", i)
+            if (endIdx === -1) {
+              thinkBuffer += combined.slice(i)
+              break
+            }
+            thinkBuffer = ""
+            inThink = false
+            i = endIdx + 8
+          }
+        }
+
+        if (out) yield out
       } catch { /* skip malformed lines */ }
     }
   }
