@@ -214,7 +214,7 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          type: 'points_purchase' | 'note_bought_points' | 'note_bought_dollars' | 'note_sale';
+          type: 'points_purchase' | 'note_bought_points' | 'note_bought_dollars' | 'note_sale' | 'promo_code_redemption';
           amount: number;
           points_amount: number;
           note_id: string | null;
@@ -223,7 +223,7 @@ export type Database = {
         Insert: {
           id?: string;
           user_id: string;
-          type: 'points_purchase' | 'note_bought_points' | 'note_bought_dollars' | 'note_sale';
+          type: 'points_purchase' | 'note_bought_points' | 'note_bought_dollars' | 'note_sale' | 'promo_code_redemption';
           amount?: number;
           points_amount?: number;
           note_id?: string | null;
@@ -232,7 +232,7 @@ export type Database = {
         Update: {
           id?: string;
           user_id?: string;
-          type?: 'points_purchase' | 'note_bought_points' | 'note_bought_dollars' | 'note_sale';
+          type?: 'points_purchase' | 'note_bought_points' | 'note_bought_dollars' | 'note_sale' | 'promo_code_redemption';
           amount?: number;
           points_amount?: number;
           note_id?: string | null;
@@ -360,6 +360,80 @@ export type Database = {
         };
         Relationships: [];
       };
+      promo_codes: {
+        Row: {
+          id: string;
+          code: string;
+          points_amount: number;
+          expires_at: string | null;
+          is_active: boolean;
+          max_uses: number | null;
+          current_uses: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          points_amount: number;
+          expires_at?: string | null;
+          is_active?: boolean;
+          max_uses?: number | null;
+          current_uses?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          code?: string;
+          points_amount?: number;
+          expires_at?: string | null;
+          is_active?: boolean;
+          max_uses?: number | null;
+          current_uses?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      promo_code_redemptions: {
+        Row: {
+          id: string;
+          promo_code_id: string;
+          user_id: string;
+          points_received: number;
+          redeemed_at: string;
+        };
+        Insert: {
+          id?: string;
+          promo_code_id: string;
+          user_id: string;
+          points_received: number;
+          redeemed_at?: string;
+        };
+        Update: {
+          id?: string;
+          promo_code_id?: string;
+          user_id?: string;
+          points_received?: number;
+          redeemed_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "promo_code_redemptions_promo_code_id_fkey";
+            columns: ["promo_code_id"];
+            isOneToOne: false;
+            referencedRelation: "promo_codes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "promo_code_redemptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -377,6 +451,8 @@ export type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 export type Purchase = Database["public"]["Tables"]["purchases"]["Row"];
 export type UserReview = Database["public"]["Tables"]["user_reviews"]["Row"];
 export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
+export type PromoCode = Database["public"]["Tables"]["promo_codes"]["Row"];
+export type PromoCodeRedemption = Database["public"]["Tables"]["promo_code_redemptions"]["Row"];
 
 export type NoteWithTags = Note & {
   tags: Tag[];

@@ -33,6 +33,7 @@ import {
   ArrowUpRight,
   ShoppingCart,
   TrendingUp,
+  Tag,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Transaction } from "@/lib/types";
@@ -57,6 +58,8 @@ export function StoreClient({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [balance, setBalance] = useState(pointsBalance);
   const [transactions, setTransactions] = useState(initialTransactions);
+  const [promoCode, setPromoCode] = useState("");
+  const [redeeming, setRedeeming] = useState(false);
   const router = useRouter();
 
   const pointsToReceive = amount * POINTS_PER_DOLLAR;
@@ -64,6 +67,36 @@ export function StoreClient({
   const handleBuyPoints = async () => {
     toast.error("Not implemented yet");
     return;
+  };
+
+  const handleRedeemPromo = async () => {
+    if (!promoCode.trim()) {
+      toast.error("Please enter a promo code");
+      return;
+    }
+
+    setRedeeming(true);
+    try {
+      const res = await fetch("/api/store/redeem-promo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoCode.trim() }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Redemption failed");
+
+      setBalance(data.new_balance);
+      toast.success(
+        `${data.message} You received ${data.points_received.toLocaleString()} points!`
+      );
+      setPromoCode("");
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setRedeeming(false);
+    }
   };
 
   const getTransactionIcon = (type: string) => {
@@ -75,6 +108,8 @@ export function StoreClient({
         return <ShoppingCart className="h-4 w-4 text-blue-500" />;
       case "note_sale":
         return <TrendingUp className="h-4 w-4 text-emerald-500" />;
+      case "promo_code_redemption":
+        return <Tag className="h-4 w-4 text-purple-500" />;
       default:
         return <DollarSign className="h-4 w-4" />;
     }
@@ -90,6 +125,8 @@ export function StoreClient({
         return "Note Purchase ($)";
       case "note_sale":
         return "Sale Revenue";
+      case "promo_code_redemption":
+        return "Promo Code Redeemed";
       default:
         return type;
     }
@@ -203,6 +240,58 @@ export function StoreClient({
         </CardContent>
       </Card>
 
+      {/* Promo Code */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Tag className="h-5 w-5" /> Redeem Promo Code
+          </CardTitle>
+          <CardDescription>
+            Have a promo code? Enter it here to get free points!
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <Label htmlFor="promo-code">Promo Code</Label>
+              <Input
+                id="promo-code"
+                type="text"
+                placeholder="Enter promo code"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !redeeming) {
+                    handleRedeemPromo();
+                  }
+                }}
+                className="mt-1 uppercase"
+                disabled={redeeming}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={handleRedeemPromo}
+                disabled={!promoCode.trim() || redeeming}
+                className="w-full sm:w-auto gap-2"
+              >
+                {redeeming ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Redeeming...
+                  </>
+                ) : (
+                  <>
+                    <Tag className="h-4 w-4" />
+                    Redeem
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Transaction History */}
       {transactions.length > 0 && (
         <Card>
@@ -230,7 +319,7 @@ export function StoreClient({
                   <div className="text-right shrink-0">
                     {tx.points_amount !== 0 && (
                       <p className="text-sm font-medium">
-                        {tx.type === "points_purchase"
+                        {tx.type === "points_purchase" || tx.type === "promo_code_redemption"
                           ? "+"
                           : tx.type.includes("bought")
                             ? "-"
