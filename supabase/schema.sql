@@ -192,11 +192,20 @@ CREATE POLICY "Users can delete own comments"
   USING (auth.uid() = user_id);
 
 -- ============================================
--- 6. STORAGE BUCKET for images
+-- 6. STORAGE BUCKET for images and files
 -- ============================================
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('note-images', 'note-images', true)
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public, allowed_mime_types, file_size_limit)
+VALUES (
+  'note-images', 
+  'note-images', 
+  true, 
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'text/markdown']::text[],
+  10485760 -- 10MB limit
+)
+ON CONFLICT (id) DO UPDATE 
+SET 
+  allowed_mime_types = EXCLUDED.allowed_mime_types,
+  file_size_limit = EXCLUDED.file_size_limit;
 
 CREATE POLICY "Anyone can read note images"
   ON storage.objects FOR SELECT

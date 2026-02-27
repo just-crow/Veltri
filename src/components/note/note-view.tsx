@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { NoteDownloadButton } from "./note-download-button";
 import { ExpandableNoteContent } from "./expandable-note-content";
+import { FileViewer } from "./file-viewer";
 import { Star, ShieldCheck, FileText, ShieldAlert } from "lucide-react";
 import type { Note, User, Tag } from "@/lib/types";
 
@@ -97,12 +98,12 @@ export function NoteView({ note, author, tags, originalFileUrl, isExclusive = fa
                   ` · Updated ${format(new Date(note.updated_at), "MMM d, yyyy")}`}
               </p>
               <Badge
-                  variant="outline"
-                  className={`text-[10px] uppercase tracking-wide gap-1 ${fileTypeBadgeClass(inferFileType(note))}`}
-                >
-                  <FileText className="h-3 w-3" />
-                  {inferFileType(note)}
-                </Badge>
+                variant="outline"
+                className={`text-[10px] uppercase tracking-wide gap-1 ${fileTypeBadgeClass(inferFileType(note))}`}
+              >
+                <FileText className="h-3 w-3" />
+                {inferFileType(note)}
+              </Badge>
             </div>
           </div>
         </div>
@@ -121,7 +122,41 @@ export function NoteView({ note, author, tags, originalFileUrl, isExclusive = fa
       </header>
 
       {/* Content */}
-      <ExpandableNoteContent html={note.content || ""} />
+      {(() => {
+        const fileType = inferFileType(note);
+        const hasViewer = (fileType === "PDF" || fileType === "DOCX") && originalFileUrl;
+
+        return (
+          <div className="space-y-8">
+            {hasViewer && (
+              <FileViewer
+                fileUrl={originalFileUrl!}
+                fileType={fileType as "PDF" | "DOCX"}
+              />
+            )}
+
+            {hasViewer ? (
+              <details className="group border border-border rounded-lg bg-muted/10 overflow-hidden shadow-sm">
+                <summary className="font-medium cursor-pointer p-4 hover:bg-muted/30 transition-colors flex items-center justify-between text-muted-foreground select-none">
+                  <span className="flex items-center gap-3">
+                    <FileText className="h-4 w-4" />
+                    View extracted text
+                    <span className="text-[10px] uppercase tracking-wider font-semibold border px-2 py-0.5 rounded-full bg-background/50 text-muted-foreground/80">Lossy</span>
+                  </span>
+                  <span className="text-xl font-light leading-none group-open:-rotate-180 transition-transform duration-300">
+                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-muted-foreground"><path d="M3.13523 6.15803C3.3241 5.95657 3.64052 5.94637 3.84197 6.13523L7.5 9.56464L11.158 6.13523C11.3595 5.94637 11.6759 5.95657 11.8648 6.15803C12.0536 6.35949 12.0434 6.67591 11.842 6.86477L7.84197 10.6148C7.64964 10.7951 7.35036 10.7951 7.15803 10.6148L3.15803 6.86477C2.95657 6.67591 2.94637 6.35949 3.13523 6.15803Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                  </span>
+                </summary>
+                <div className="p-4 pt-4 border-t border-border/50 bg-background/50">
+                  <ExpandableNoteContent html={note.content || ""} />
+                </div>
+              </details>
+            ) : (
+              <ExpandableNoteContent html={note.content || ""} />
+            )}
+          </div>
+        );
+      })()}
 
       {/* Originality disclaimer for exclusive notes */}
       {isExclusive && (

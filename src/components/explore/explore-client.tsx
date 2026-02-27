@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
-import { Search, Globe, X } from "lucide-react";
+import { Search, Globe, X, SlidersHorizontal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Note, User } from "@/lib/types";
 import { NotePriceBadge } from "@/components/note/note-price-badge";
@@ -66,10 +66,10 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-colors border ${
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 border select-none ${
         active
-          ? "bg-primary text-primary-foreground border-primary"
-          : "bg-background text-muted-foreground border-border hover:border-foreground/30 hover:text-foreground"
+          ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30 scale-[1.04]"
+          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/25 hover:text-foreground hover:bg-muted/60 hover:scale-[1.03]"
       }`}
     >
       {label}
@@ -87,8 +87,30 @@ export function ExploreClient({
   activeFilters,
 }: ExploreClientProps) {
   const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [filterOpen, setFilterOpen] = useState(false);
   const router = useRouter();
   const totalPages = Math.ceil(totalCount / perPage);
+
+  // Lock body scroll on iOS when sheet is open
+  useEffect(() => {
+    if (filterOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+    } else {
+      const scrollY = parseInt(document.body.style.top || "0") * -1;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      window.scrollTo(0, scrollY);
+    }
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+    };
+  }, [filterOpen]);
 
   const currentSort = activeFilters?.sort || "newest";
   const currentType = activeFilters?.type || "all";
@@ -165,70 +187,228 @@ export function ExploreClient({
       </div>
 
       {/* ── Filter bar ── */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        {/* Left: filters */}
-        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
-          {/* Sort */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">Sort</span>
-            {(["newest", "oldest", "top-rated", "price-low"] as const).map((v) => {
-              const labels: Record<string, string> = { newest: "New", oldest: "Old", "top-rated": "Top", "price-low": "Price ↑" };
-              return <FilterChip key={v} label={labels[v]} active={currentSort === v} onClick={() => router.push(buildUrl({ sort: v }))} />;
-            })}
-          </div>
 
-          <span className="hidden sm:inline-block w-px h-4 bg-border" />
-
-          {/* File type */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">Type</span>
-            {(["all", "note", "pdf", "docx"] as const).map((v) => {
-              const labels: Record<string, string> = { all: "All", note: "Note", pdf: "PDF", docx: "DOCX" };
-              return <FilterChip key={v} label={labels[v]} active={currentType === v} onClick={() => router.push(buildUrl({ type: v }))} />;
-            })}
-          </div>
-
-          <span className="hidden sm:inline-block w-px h-4 bg-border" />
-
-          {/* Price */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">Price</span>
-            {(["all", "free", "paid"] as const).map((v) => (
-              <FilterChip key={v} label={v.charAt(0).toUpperCase() + v.slice(1)} active={currentPrice === v} onClick={() => router.push(buildUrl({ price: v }))} />
-            ))}
-          </div>
-
-          <span className="hidden sm:inline-block w-px h-4 bg-border" />
-
-          {/* Score */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">Score</span>
-            {([0, 5, 7, 9] as const).map((v) => (
-              <FilterChip key={v} label={v === 0 ? "Any" : `${v}+`} active={currentMinScore === v} onClick={() => router.push(buildUrl({ minScore: v }))} />
-            ))}
-          </div>
-        </div>
-
-        {/* Right: exclusive */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Exclusive</span>
-          {(["all", "yes", "no"] as const).map((v) => {
-            const labels: Record<string, string> = { all: "All", yes: "Only", no: "Hide" };
-            return <FilterChip key={v} label={labels[v]} active={currentExclusive === v} onClick={() => router.push(buildUrl({ exclusive: v }))} />;
-          })}
-        </div>
-
-        {/* Clear */}
+      {/* Mobile trigger */}
+      <div className="flex items-center gap-2 sm:hidden">
+        <button
+          type="button"
+          onClick={() => setFilterOpen(true)}
+          className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/60 px-4 py-2 text-sm font-medium shadow-sm backdrop-blur-sm transition-colors hover:bg-muted/60"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          Filters
+          {activeFilterCount > 0 && (
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
         {hasActiveFilters && (
           <button
             type="button"
             onClick={clearFilters}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-destructive transition-colors"
           >
             <X className="h-3 w-3" />
-            Clear filters
+            Clear
           </button>
         )}
+      </div>
+
+      {/* Mobile bottom-sheet */}
+      <AnimatePresence>
+        {filterOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm sm:hidden"
+              onClick={() => setFilterOpen(false)}
+            />
+            {/* Sheet */}
+            <motion.div
+              key="sheet"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 340, damping: 32 }}
+              className="fixed bottom-0 left-0 right-0 z-50 sm:hidden rounded-t-2xl border-t border-border/60 bg-card shadow-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+            >
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="h-1 w-10 rounded-full bg-border" />
+              </div>
+
+              <div className="flex items-center justify-between px-5 pb-3 pt-1">
+                <span className="text-sm font-semibold">Filters</span>
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen(false)}
+                  className="rounded-full p-1 text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="px-5 pb-6 flex flex-col gap-5 overflow-y-auto max-h-[70dvh]">
+                {/* Sort */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Sort</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(["newest", "oldest", "top-rated", "price-low"] as const).map((v) => {
+                      const labels: Record<string, string> = { newest: "New", oldest: "Old", "top-rated": "Top", "price-low": "Price ↑" };
+                      return <FilterChip key={v} label={labels[v]} active={currentSort === v} onClick={() => { router.push(buildUrl({ sort: v })); setFilterOpen(false); }} />;
+                    })}
+                  </div>
+                </div>
+
+                <div className="h-px bg-border/40" />
+
+                {/* Type */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Type</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(["all", "note", "pdf", "docx"] as const).map((v) => {
+                      const labels: Record<string, string> = { all: "All", note: "Note", pdf: "PDF", docx: "DOCX" };
+                      return <FilterChip key={v} label={labels[v]} active={currentType === v} onClick={() => { router.push(buildUrl({ type: v })); setFilterOpen(false); }} />;
+                    })}
+                  </div>
+                </div>
+
+                <div className="h-px bg-border/40" />
+
+                {/* Price */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Price</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(["all", "free", "paid"] as const).map((v) => (
+                      <FilterChip key={v} label={v.charAt(0).toUpperCase() + v.slice(1)} active={currentPrice === v} onClick={() => { router.push(buildUrl({ price: v })); setFilterOpen(false); }} />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="h-px bg-border/40" />
+
+                {/* Score */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Score</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([0, 5, 7, 9] as const).map((v) => (
+                      <FilterChip key={v} label={v === 0 ? "Any" : `${v}+`} active={currentMinScore === v} onClick={() => { router.push(buildUrl({ minScore: v })); setFilterOpen(false); }} />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="h-px bg-border/40" />
+
+                {/* Exclusive */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Exclusive</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(["all", "yes", "no"] as const).map((v) => {
+                      const labels: Record<string, string> = { all: "All", yes: "Only", no: "Hide" };
+                      return <FilterChip key={v} label={labels[v]} active={currentExclusive === v} onClick={() => { router.push(buildUrl({ exclusive: v })); setFilterOpen(false); }} />;
+                    })}
+                  </div>
+                </div>
+
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={() => { clearFilters(); setFilterOpen(false); }}
+                    className="mt-1 w-full rounded-full border border-border/60 py-2 text-sm text-muted-foreground/70 hover:text-destructive hover:border-destructive/40 transition-colors"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop card panel */}
+      <div className="hidden sm:block rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm px-4 py-3 shadow-sm">
+        <div className="flex flex-row flex-wrap items-center gap-x-5 gap-y-2.5">
+          {/* Sort */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest shrink-0 w-12">Sort</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(["newest", "oldest", "top-rated", "price-low"] as const).map((v) => {
+                const labels: Record<string, string> = { newest: "New", oldest: "Old", "top-rated": "Top", "price-low": "Price ↑" };
+                return <FilterChip key={v} label={labels[v]} active={currentSort === v} onClick={() => router.push(buildUrl({ sort: v }))} />;
+              })}
+            </div>
+          </div>
+
+          <span className="w-px h-5 bg-border/60 shrink-0" />
+
+          {/* File type */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest shrink-0 w-12">Type</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(["all", "note", "pdf", "docx"] as const).map((v) => {
+                const labels: Record<string, string> = { all: "All", note: "Note", pdf: "PDF", docx: "DOCX" };
+                return <FilterChip key={v} label={labels[v]} active={currentType === v} onClick={() => router.push(buildUrl({ type: v }))} />;
+              })}
+            </div>
+          </div>
+
+          <span className="w-px h-5 bg-border/60 shrink-0" />
+
+          {/* Price */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest shrink-0 w-12">Price</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(["all", "free", "paid"] as const).map((v) => (
+                <FilterChip key={v} label={v.charAt(0).toUpperCase() + v.slice(1)} active={currentPrice === v} onClick={() => router.push(buildUrl({ price: v }))} />
+              ))}
+            </div>
+          </div>
+
+          <span className="w-px h-5 bg-border/60 shrink-0" />
+
+          {/* Score */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest shrink-0 w-12">Score</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {([0, 5, 7, 9] as const).map((v) => (
+                <FilterChip key={v} label={v === 0 ? "Any" : `${v}+`} active={currentMinScore === v} onClick={() => router.push(buildUrl({ minScore: v }))} />
+              ))}
+            </div>
+          </div>
+
+          <span className="w-px h-5 bg-border/60 shrink-0" />
+
+          {/* Exclusive */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest shrink-0 w-12">Excl.</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(["all", "yes", "no"] as const).map((v) => {
+                const labels: Record<string, string> = { all: "All", yes: "Only", no: "Hide" };
+                return <FilterChip key={v} label={labels[v]} active={currentExclusive === v} onClick={() => router.push(buildUrl({ exclusive: v }))} />;
+              })}
+            </div>
+          </div>
+
+          {hasActiveFilters && (
+            <>
+              <span className="w-px h-5 bg-border/60 shrink-0" />
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-destructive transition-colors"
+              >
+                <X className="h-3 w-3" />
+                Clear
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {initialQuery && (

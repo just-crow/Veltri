@@ -44,6 +44,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify ownership BEFORE running expensive AI prompts
+    if (noteId) {
+      const { createClient } = await import("@/lib/supabase/server");
+      const supabase = await createClient();
+
+      const { data: noteData } = await (supabase as any)
+        .from("notes")
+        .select("user_id")
+        .eq("id", noteId)
+        .single();
+
+      if (!noteData || noteData.user_id !== user!.id) {
+        return NextResponse.json(
+          { error: "Not authorized to update this note" },
+          { status: 403 }
+        );
+      }
+    }
+
     const prompt = `Write a concise 2-sentence description of the note content below, suitable for use as an SEO meta description. Output ONLY the description itself — no labels, no introductory phrases, no quotation marks, no explanations. Begin immediately with the first word of the description.
 
 Note content:
@@ -69,21 +88,6 @@ ${content.substring(0, 4000)}`;
     if (noteId) {
       const { createClient } = await import("@/lib/supabase/server");
       const supabase = await createClient();
-
-      // Verify the current user owns this note (prevent IDOR)
-      const { data: noteData } = await (supabase as any)
-        .from("notes")
-        .select("*")
-        .eq("id", noteId)
-        .single();
-      const note = noteData as { user_id: string } | null;
-
-      if (!note || note.user_id !== user!.id) {
-        return NextResponse.json(
-          { error: "Not authorized to update this note" },
-          { status: 403 }
-        );
-      }
 
       await (supabase as any)
         .from("notes")

@@ -1,6 +1,16 @@
 /**
  * Simple in-memory rate limiter.
- * In production, replace with Redis-based rate limiting.
+ * 
+ * WARNING: In serverless environments (like Vercel Lambdas), memory is isolated 
+ * per function instance. This means that an attacker hitting multiple instances 
+ * simultaneously will bypass this rate limit, making it effectively useless in production.
+ * 
+ * RECOMMENDED: In production, you should replace this with a distributed rate limiter 
+ * using Upstash Redis (@vercel/kv) or a Supabase Postgres RPC function.
+ * 
+ * Example Vercel KV implementation:
+ * import { kv } from '@vercel/kv';
+ * // return await kv.set(...) // with expiry
  */
 
 interface RateLimitEntry {

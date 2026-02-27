@@ -1,27 +1,33 @@
+import DOMPurify from 'isomorphic-dompurify';
+
 /**
- * Lightweight server-safe HTML sanitizer.
- * Strips dangerous tags/attributes without requiring a DOM (no JSDOM).
+ * Robust server-safe HTML sanitizer.
+ * Strips dangerous tags/attributes to prevent XSS.
  * Used only in API routes where we construct HTML from trusted
  * sources (PDF text, mammoth output, markdown conversion).
- *
- * For client-side rendering of arbitrary user HTML, use the
- * SafeHtmlContent component (which uses browser DOMPurify).
  */
-const FORBIDDEN_TAGS = ["script", "style", "iframe", "object", "embed", "form", "input", "textarea", "select", "link"];
-const EVENT_ATTR_RE = /\s+on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi;
-
 export function sanitizeHtml(html: string): string {
-  let clean = html;
-  // Strip forbidden tags and their content
-  for (const tag of FORBIDDEN_TAGS) {
-    const openClose = new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, "gi");
-    clean = clean.replace(openClose, "");
-    const selfClose = new RegExp(`<${tag}\\b[^>]*/?>`, "gi");
-    clean = clean.replace(selfClose, "");
-  }
-  // Strip event-handler attributes (onclick, onerror, etc.)
-  clean = clean.replace(EVENT_ATTR_RE, "");
-  // Strip javascript: hrefs
-  clean = clean.replace(/href\s*=\s*["']?\s*javascript:/gi, 'href="');
-  return clean;
+  // Use isomorphic-dompurify to sanitize on the backend
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      "h1", "h2", "h3", "h4", "h5", "h6",
+      "p", "br", "hr", "div", "span",
+      "strong", "b", "em", "i", "u", "s", "del", "mark", "sub", "sup",
+      "ul", "ol", "li",
+      "pre", "code",
+      "a", "img",
+      "table", "thead", "tbody", "tr", "th", "td",
+      "blockquote", "figure", "figcaption",
+    ],
+    ALLOWED_ATTR: [
+      "href", "src", "alt", "title", "class", "id",
+      "target", "rel",
+      "width", "height",
+      "colspan", "rowspan",
+      "data-type", "data-language",
+    ],
+    ADD_ATTR: ["target"],
+    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form", "input", "textarea", "select", "link"],
+    FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur"],
+  }) as string;
 }

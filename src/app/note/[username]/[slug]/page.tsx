@@ -112,15 +112,18 @@ export default async function NotePage({ params }: NotePageProps) {
       .single();
     userPointsBalance = (userProfile as any)?.points_balance ?? 0;
 
-    // Org discount
+    // Org discount logic
     const buyerEmail: string = (userProfile as any)?.email ?? currentUser.email ?? "";
     const buyerOrgDomain = getOrgDomain(buyerEmail);
-    if (buyerOrgDomain) {
+    const authorOrgDomain = getOrgDomain(author.email ?? "");
+
+    if (buyerOrgDomain && authorOrgDomain && buyerOrgDomain === authorOrgDomain) {
       const { data: orgData } = await (supabase as any)
         .from("organizations")
         .select("discount_percent, display_name")
         .eq("domain", buyerOrgDomain)
         .maybeSingle();
+
       if (orgData) {
         orgDiscountPercent = (orgData as any).discount_percent ?? 0;
         orgName = (orgData as any).display_name ?? getOrgDisplayName(buyerOrgDomain);
@@ -159,12 +162,12 @@ export default async function NotePage({ params }: NotePageProps) {
 
   const previewStart = note.raw_markdown
     ? note.raw_markdown
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .slice(0, 10)
-        .join("\n")
-        .substring(0, 900)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 10)
+      .join("\n")
+      .substring(0, 900)
     : null;
 
   return (

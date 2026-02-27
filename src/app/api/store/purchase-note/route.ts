@@ -34,12 +34,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    // Get the note
+    // Fetch note WITH author user to verify shared org
     const { data: noteData } = await (supabase as any)
       .from("notes")
-      .select("*")
+      .select(`
+        *,
+        users ( email )
+      `)
       .eq("id", noteId)
       .single();
+
+    if (!noteData || !noteData.is_published) {
+      return NextResponse.json({ error: "Note not found" }, { status: 404 });
+    }
+
     const note = noteData as {
       id: string;
       user_id: string;
@@ -48,11 +56,8 @@ export async function POST(request: NextRequest) {
       is_published: boolean;
       is_exclusive: boolean;
       is_sold: boolean;
-    } | null;
-
-    if (!note || !note.is_published) {
-      return NextResponse.json({ error: "Note not found" }, { status: 404 });
-    }
+      users?: { email: string };
+    };
 
     if (note.price <= 0) {
       return NextResponse.json({ error: "This note is free" }, { status: 400 });
@@ -76,10 +81,12 @@ export async function POST(request: NextRequest) {
 
     const dollarPrice = Number(note.price);
 
-    // Apply org member discount (if any)
+    // Apply org member discount ONLY if buyer and author share the same org domain
     let orgDiscountFactor = 1;
     const buyerOrgDomain = getOrgDomain(user.email ?? "");
-    if (buyerOrgDomain) {
+    const authorOrgDomain = getOrgDomain(note.users?.email ?? "");
+
+    if (buyerOrgDomain && authorOrgDomain && buyerOrgDomain === authorOrgDomain) {
       const { data: orgData } = await (supabase as any)
         .from("organizations")
         .select("discount_percent")
